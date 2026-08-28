@@ -8,6 +8,7 @@ const ok = (s) => `\x1b[32m${s}\x1b[0m`;
 const warn = (s) => `\x1b[33m${s}\x1b[0m`;
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const now = () => new Date().toLocaleTimeString();
+const statOrNull = (f) => { try { return fs.statSync(f); } catch { return null; } };
 
 function slug(name) {
   return (
@@ -66,7 +67,12 @@ export async function restore(cfg, id) {
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort() : [];
   if (!files.length) throw new BridgeError(`No backups for "${id}" yet — backups are taken automatically before every AI change.`);
   const latest = path.join(dir, files[files.length - 1]);
-  const wf = JSON.parse(fs.readFileSync(latest, 'utf8'));
+  let wf;
+  try {
+    wf = JSON.parse(fs.readFileSync(latest, 'utf8'));
+  } catch {
+    throw new BridgeError(`Backup ${files[files.length - 1]} is corrupt — delete it (${latest}) and run restore again to use the next-oldest backup.`);
+  }
   await ensureContainer(cfg.container);
   await importWorkflowRaw(cfg.container, wf);
   fs.unlinkSync(latest);
@@ -115,7 +121,12 @@ export function watchFile(cfg, file, log = console.log) {
       log(`${dim(now())} ${warn('✗ ' + err.message)}`);
     } finally {
       busy = false;
-      if (again) { again = false; deploy(fs.statSync(file).mtimeMs); }
+      if (again) {
+        again = false;
+        const st = statOrNull(file);
+        if (st) deploy(st.mtimeMs);
+        else log(`${dim(now())} ${warn('✗ workflow.json disappeared — run n8n-codex pull to fetch it again')}`);
+      }
     }
   }
 
@@ -169,8 +180,9 @@ export async function session(cfg, id) {
   });
 
   // Catch a save that landed after the watcher's last poll.
-  const finalMtime = fs.statSync(file).mtimeMs;
-  if (finalMtime > watcher.lastPushed()) await watcher.deploy(finalMtime);
+  const finalStat = statOrNull(file);
+  if (finalStat && finalStat.mtimeMs > watcher.lastPushed()) await watcher.deploy(finalStat.mtimeMs);
+  else if (!finalStat) console.log(warn(`workflow.json disappeared — run n8n-codex pull ${id} to fetch it again.`));
   watcher.stop();
   console.log(`\nSession ended. Your workflow: ${cfg.n8nUrl}/workflow/${wf.id}`);
   return code;

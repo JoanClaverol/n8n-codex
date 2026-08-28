@@ -54,12 +54,30 @@ async function load() {
     tbody.innerHTML = '';
     for (const w of rows) {
       const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td class="name">' + w.name + '<br><code>' + w.id + '</code></td>' +
-        '<td>' + w.nodes + '</td>' +
-        '<td><span class="badge' + (w.active ? ' on' : '') + '">' + (w.active ? 'active' : 'inactive') + '</span></td>' +
-        '<td><a class="btn primary" href="/chat/' + w.id + '">Chat</a></td>' +
-        '<td><a class="btn" target="_blank" href="${cfg.n8nUrl}/workflow/' + w.id + '">Open in n8n</a></td>';
+      const td = (cls) => { const el = document.createElement('td'); if (cls) el.className = cls; tr.appendChild(el); return el; };
+      // textContent, never innerHTML — workflow names are untrusted
+      const name = td('name');
+      name.textContent = w.name;
+      name.appendChild(document.createElement('br'));
+      const idEl = document.createElement('code');
+      idEl.textContent = w.id;
+      name.appendChild(idEl);
+      td().textContent = w.nodes;
+      const badge = document.createElement('span');
+      badge.className = 'badge' + (w.active ? ' on' : '');
+      badge.textContent = w.active ? 'active' : 'inactive';
+      td().appendChild(badge);
+      const chat = document.createElement('a');
+      chat.className = 'btn primary';
+      chat.href = '/chat/' + encodeURIComponent(w.id);
+      chat.textContent = 'Chat';
+      td().appendChild(chat);
+      const open = document.createElement('a');
+      open.className = 'btn';
+      open.target = '_blank';
+      open.href = '${cfg.n8nUrl}/workflow/' + encodeURIComponent(w.id);
+      open.textContent = 'Open in n8n';
+      td().appendChild(open);
       tbody.appendChild(tr);
     }
     document.getElementById('tbl').hidden = false;
@@ -236,6 +254,12 @@ async function readBody(req) {
   return JSON.parse(body || '{}');
 }
 
+/** Accept only requests addressed to this machine's dashboard (anti DNS-rebinding). */
+function hostAllowed(cfg, req) {
+  const host = (req.headers.host || '').toLowerCase();
+  return host === `localhost:${cfg.port}` || host === `127.0.0.1:${cfg.port}` || host === `[::1]:${cfg.port}`;
+}
+
 /** Forward a request to n8n, stripping headers that block iframing. */
 function proxyToN8n(cfg, req, res) {
   const target = new URL(cfg.n8nUrl);
@@ -260,6 +284,10 @@ function proxyToN8n(cfg, req, res) {
 export function serve(cfg) {
   const server = http.createServer(async (req, res) => {
     try {
+      // Only requests addressed to this dashboard are served — blocks
+      // DNS-rebinding pages that resolve their own hostname to 127.0.0.1.
+      if (!hostAllowed(cfg, req)) { res.writeHead(403); res.end('forbidden'); return; }
+
       if (req.url === '/api/workflows') {
         const rows = await list(cfg);
         res.writeHead(200, { 'content-type': 'application/json' });
@@ -270,6 +298,11 @@ export function serve(cfg) {
       const chatApi = req.url.match(/^\/api\/chat\/([A-Za-z0-9_-]+)$/);
       if (chatApi && req.method === 'POST') {
         const id = chatApi[1];
+        // require a JSON content type: cross-origin "simple" POSTs from a
+        // drive-by web page can only send text/plain without a CORS preflight
+        if (!/^application\/json/.test(req.headers['content-type'] || '')) {
+          res.writeHead(403); res.end('forbidden'); return;
+        }
         const { message } = await readBody(req);
         if (!message) { res.writeHead(400); res.end('missing message'); return; }
         const rows = await list(cfg);
@@ -319,6 +352,7 @@ export function serve(cfg) {
 
   // pass n8n's websocket (live canvas push) through the proxy
   server.on('upgrade', (req, socket) => {
+    if (!hostAllowed(cfg, req)) { socket.destroy(); return; }
     const target = new URL(cfg.n8nUrl);
     const up = http.request({
       host: target.hostname, port: target.port || 80, path: req.url, method: 'GET',

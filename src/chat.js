@@ -41,13 +41,22 @@ export function chatTurn(cfg, id, name, message, onEvent) {
   // exec-level options must come BEFORE the `resume` subcommand
   const args = ['exec', '--json', '--skip-git-repo-check', '--approve-for-me', '--cd', os.tmpdir()];
   if (s.threadId) args.push('resume', s.threadId);
-  args.push(s.threadId ? message : `${preamble(cfg, id, name)}\n\n${message}`);
+  // `-` = read the prompt from stdin. Never put the student's message in argv:
+  // on Windows spawn uses cmd.exe for the .cmd shim, which would interpret
+  // metacharacters (&, |, %, quotes) in free-form text as shell syntax.
+  args.push('-');
+  const prompt = s.threadId ? message : `${preamble(cfg, id, name)}\n\n${message}`;
 
   return new Promise((resolve, reject) => {
-    const p = spawn('codex', args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
+    const win = process.platform === 'win32';
+    // cmd.exe gets argv joined with spaces un-escaped — quote so the tmpdir
+    // path (which may contain spaces) survives; all args are shell-safe literals
+    const p = spawn('codex', win ? args.map((a) => `"${a}"`) : args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: win,
     });
+    p.stdin.on('error', () => {}); // EPIPE if codex dies before reading
+    p.stdin.end(prompt);
     let buf = '';
     let stderr = '';
     let sawReply = false;

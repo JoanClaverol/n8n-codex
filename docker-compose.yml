@@ -1,0 +1,28 @@
+# n8n — course installation (WBS Module 3, "Docker & n8n Installation").
+# Reproduces the Docker Desktop steps from the lesson as code:
+#   container "n8n", host port 5678, persistent volume "n8n_data"
+#   mounted at /home/node/.n8n, and the three required env vars.
+#
+#   docker compose up -d      # install / start
+#   docker compose down       # stop (data stays in the n8n_data volume)
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-latest}
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      # Loopback only — the editor is for this machine (http://localhost:5678),
+      # not for everyone on the same Wi-Fi.
+      - "127.0.0.1:5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Europe/Madrid}
+      - TZ=${TZ:-Europe/Madrid}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
+    # Exact name (no compose project prefix) so it matches the volume the
+    # course has students create by hand — existing data is adopted as-is.
+    name: n8n_data

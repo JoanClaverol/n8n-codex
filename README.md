@@ -12,16 +12,28 @@ update live while you talk.
         one browser window, port 5680
 ```
 
-## For students — one-time setup (~5 min)
+## For students — one-time setup (~10 min)
 
-You already have Docker and n8n running. Three more steps, copy-paste each line
-into a terminal:
+This repo contains the full course n8n installation. You need
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) (pick the
+installer for your chip — see the Module 3 lesson) and
+[Node.js](https://nodejs.org). Then copy-paste each line into a terminal:
 
 ```sh
-npm install -g @openai/codex      # 1. the AI assistant  (needs Node.js from nodejs.org)
-codex login                       # 2. sign in with the ChatGPT account
-git clone <this-repo-url> && cd n8n-codex && npm install -g .   # 3. this tool
+git clone https://github.com/JoanClaverol/n8n-codex.git && cd n8n-codex
+docker compose up -d              # 1. install & start n8n  (container "n8n", port 5678,
+                                  #    persistent volume "n8n_data", course env vars)
+npm install -g @openai/codex      # 2. the AI assistant
+codex login                       # 3. sign in with the ChatGPT account
+npm install -g .                  # 4. this tool
 ```
+
+First time only: open http://localhost:5678 and create the n8n owner account
+(email, name, password with 8+ characters, a number, and a capital letter).
+
+Already installed n8n by hand following the lesson? `docker compose up -d`
+adopts your existing `n8n_data` volume — nothing is lost. Timezone or version
+overrides go in `.env` (copy `.env.example`).
 
 ## Every day after that
 
@@ -101,7 +113,7 @@ n8n-codex mcp           # the MCP server itself (codex launches this; not for hu
 | Symptom | Fix |
 |---|---|
 | `Docker CLI not found` | Install/start Docker Desktop |
-| `no n8n container found` | Start Docker Desktop; or `n8n-codex --container=<your-name>` |
+| `no n8n container found` | `docker compose up -d` in this folder; or `n8n-codex --container=<your-name>` |
 | Chat says codex is not logged in | Run `codex login` once |
 | `Port 5680 is already in use` | Dashboard already running — just open http://localhost:5680 |
 | `codex not found on PATH` | `npm install -g @openai/codex` (session keeps watching meanwhile) |

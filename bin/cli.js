@@ -42,10 +42,21 @@ for (const a of process.argv.slice(2)) {
   else if (a.startsWith('--container=')) cfg.container = a.slice('--container='.length);
   else if (a.startsWith('--n8n-url=')) cfg.n8nUrl = a.slice('--n8n-url='.length).replace(/\/$/, '');
   else if (a.startsWith('--dir=')) cfg.dir = a.slice('--dir='.length);
-  else if (a.startsWith('--port=')) cfg.port = Number(a.slice('--port='.length));
+  else if (a.startsWith('--port=')) {
+    cfg.port = Number(a.slice('--port='.length));
+    if (!Number.isInteger(cfg.port) || cfg.port < 1 || cfg.port > 65535) {
+      console.error(`Invalid --port value: ${a.slice('--port='.length)} (use a number between 1 and 65535)`);
+      process.exit(1);
+    }
+  }
   else if (a === '-h' || a === '--help') { console.log(HELP); process.exit(0); }
   else if (a.startsWith('-')) { console.error(`Unknown option: ${a}\n\n${HELP}`); process.exit(1); }
   else rest.push(a);
+}
+
+if (!cfg.n8nUrl.startsWith('http://')) {
+  console.error('--n8n-url must start with http:// — the dashboard proxy does not support https URLs.');
+  process.exit(1);
 }
 
 const [cmd, arg] = rest;

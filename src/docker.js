@@ -48,9 +48,8 @@ export async function ensureContainer(container) {
   } catch {
     throw new BridgeError(
       `No Docker container named "${container}" found.\n\n` +
-      `If you have not set up n8n yet, run:\n\n` +
-      `  docker volume create n8n_data\n` +
-      `  docker run -d --name ${container} -p 5678:5678 -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n\n\n` +
+      `If you have not set up n8n yet, run this from the n8n-codex folder:\n\n` +
+      `  docker compose up -d\n\n` +
       `Then open http://localhost:5678 and try again.`
     );
   }

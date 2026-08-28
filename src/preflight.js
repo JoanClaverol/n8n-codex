@@ -9,10 +9,14 @@ const ok = (s) => console.log(`  \x1b[32m✓\x1b[0m ${s}`);
 const bad = (s) => console.log(`  \x1b[31m✗\x1b[0m ${s}`);
 const fix = (s) => console.log(`    \x1b[33m→ ${s}\x1b[0m`);
 
-async function run(cmd, args) {
-  const { stdout } = await exec(cmd, args, { maxBuffer: 8 * 1024 * 1024 });
+async function run(cmd, args, opts = {}) {
+  const { stdout } = await exec(cmd, args, { maxBuffer: 8 * 1024 * 1024, ...opts });
   return stdout;
 }
+
+// npm installs codex as a .cmd shim on Windows; execFile refuses those
+// without a shell (CVE-2024-27980 hardening). All args here are literals.
+const codexOpts = { shell: process.platform === 'win32' };
 
 async function n8nReachable(url, tries = 1, delayMs = 1000) {
   for (let i = 0; i < tries; i++) {
@@ -60,14 +64,14 @@ export async function preflight(cfg) {
       fix(`run:  n8n-codex --container=${hint}`);
     } else {
       bad(`no n8n container found (looked for "${cfg.container}")`);
-      fix('is Docker Desktop running? Then follow the n8n install step in the README');
+      fix('is Docker Desktop running? Then install n8n with:  docker compose up -d  (from the n8n-codex folder)');
     }
     return false;
   }
 
   // 2. codex CLI
   try {
-    await run('codex', ['--version']);
+    await run('codex', ['--version'], codexOpts);
     ok('AI assistant (codex) is installed');
   } catch {
     bad('codex is not installed');
@@ -86,11 +90,11 @@ export async function preflight(cfg) {
 
   // 4. MCP registration (auto-fix)
   try {
-    const listed = await run('codex', ['mcp', 'list']);
+    const listed = await run('codex', ['mcp', 'list'], codexOpts);
     if (/^n8n\s/m.test(listed)) {
       ok('codex can talk to n8n');
     } else {
-      await run('codex', ['mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp']);
+      await run('codex', ['mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp'], codexOpts);
       ok('connected codex to n8n (first-time setup)');
     }
   } catch {

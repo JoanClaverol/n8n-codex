@@ -1,0 +1,12 @@
+{
+  "name": "n8n-codex",
+  "version": "0.1.0",
+  "description": "Edit local n8n workflows with the Codex CLI — pull a workflow to a file, let AI edit it, auto-deploy on save.",
+  "type": "module",
+  "bin": { "n8n-codex": "bin/cli.js" },
+  "files": ["bin", "src", "README.md"],
+  "engines": { "node": ">=18" },
+  "private": true,
+  "keywords": ["n8n", "codex", "ai", "workflow"],
+  "license": "MIT"
+}

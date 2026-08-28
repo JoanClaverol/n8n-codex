@@ -13,6 +13,8 @@ Usage:
   n8n-codex pull <id>          just download workflow.json (+ AGENTS.md)
   n8n-codex push <id>          deploy your local workflow.json
   n8n-codex watch <id>         auto-deploy on save, without launching codex
+  n8n-codex setup              register the n8n MCP server with codex (run once)
+  n8n-codex mcp                run the MCP server (codex launches this itself)
 
 Options:
   --container=<name>   n8n Docker container name        (default: n8n)
@@ -57,6 +59,22 @@ try {
     case undefined:
       serve(cfg);
       break;
+
+    case 'mcp': {
+      const { serveMcp } = await import('../src/mcp.js');
+      serveMcp(cfg);
+      break;
+    }
+
+    case 'setup': {
+      const { execFileSync } = await import('node:child_process');
+      execFileSync('codex', ['mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp'], {
+        stdio: 'inherit',
+        shell: process.platform === 'win32',
+      });
+      console.log('Registered MCP server "n8n" with codex. Try:  codex  →  "list my n8n workflows"');
+      break;
+    }
 
     case 'list': {
       const rows = await list(cfg);

@@ -31,10 +31,11 @@ and **auto-deploys every save back to n8n**.
 git clone <this-repo-url>
 cd n8n-codex
 npm install -g .
+n8n-codex setup        # registers the n8n MCP server with codex (once)
 ```
 
-Works on macOS, Windows, and Linux. To update later: `git pull` inside the folder
-(no reinstall needed — the global command points at your clone).
+Works on macOS, Windows, and Linux. To update later: `git pull && npm install -g .`
+inside the folder.
 
 ## Use
 
@@ -44,10 +45,24 @@ Works on macOS, Windows, and Linux. To update later: `git pull` inside the folde
 n8n-codex
 ```
 
-Opens http://localhost:5680 with a list of your workflows. Click **Copy edit command**
-on the one you want, paste it into a terminal, done.
+Opens http://localhost:5680 with a list of your workflows. Click **Chat** on the one
+you want and just talk to it:
 
-**Or directly, if you know the workflow id** (it's in the n8n URL:
+> add an HTTP Request node that fetches a random joke from
+> https://official-joke-api.appspot.com/random_joke and connect it after the trigger
+
+The AI reads and updates the workflow in n8n directly (via MCP tools) and tells you
+when it saved. Refresh the n8n tab to see each change. The conversation remembers
+context, so "actually, undo that" works.
+
+**Prefer the terminal?** Two more ways, same result:
+
+- `codex` anywhere — after `n8n-codex setup`, Codex has `list_workflows`,
+  `get_workflow`, and `update_workflow` tools. Say "add a Set node to my workflow
+  <id>" in any codex conversation.
+- A file-based session (see below) if you want to inspect or hand-edit the JSON.
+
+**File-based session, if you know the workflow id** (it's in the n8n URL:
 `http://localhost:5678/workflow/<id>`):
 
 ```sh
@@ -71,6 +86,8 @@ n8n-codex pull <id>     # just download workflow.json
 n8n-codex push <id>     # deploy your local workflow.json
 n8n-codex watch <id>    # auto-deploy on save, use your own editor instead of codex
 n8n-codex --help        # all options (custom container name, ports, folders)
+n8n-codex setup         # register the n8n MCP server with codex (run once)
+n8n-codex mcp           # the MCP server itself (codex launches this; not for humans)
 ```
 
 ## Rules of the road
@@ -89,6 +106,8 @@ n8n-codex --help        # all options (custom container name, ports, folders)
 |---|---|
 | `Docker CLI not found` | Install/start Docker Desktop |
 | `No Docker container named "n8n"` | Run the `docker run` command from Prerequisites |
+| Chat says codex is not logged in | Run `codex login` once |
+| `Port 5680 is already in use` | Dashboard already running — just open http://localhost:5680 |
 | `codex not found on PATH` | `npm install -g @openai/codex` (session keeps watching meanwhile) |
 | Changes not visible in n8n | Refresh the browser tab |
 | Different container name | `n8n-codex --container=my-n8n <id>` |

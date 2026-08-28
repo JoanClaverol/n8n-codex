@@ -2,7 +2,8 @@ import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
-const TMP = '/tmp/.n8n-codex.json';
+let seq = 0;
+const tmpName = () => `/tmp/.n8n-codex-${process.pid}-${++seq}.json`;
 
 export class BridgeError extends Error {}
 
@@ -38,24 +39,34 @@ export async function ensureContainer(container) {
 
 /** Export one workflow (by id) or all workflows. Returns an array. */
 export async function exportWorkflows(container, id) {
+  const tmp = tmpName();
   const selector = id ? [`--id=${id}`] : ['--all'];
-  await docker(['exec', container, 'n8n', 'export:workflow', ...selector, `--output=${TMP}`]);
-  const raw = await docker(['exec', container, 'cat', TMP]);
-  return JSON.parse(raw);
+  try {
+    await docker(['exec', container, 'n8n', 'export:workflow', ...selector, `--output=${tmp}`]);
+    const raw = await docker(['exec', container, 'cat', tmp]);
+    return JSON.parse(raw);
+  } finally {
+    docker(['exec', container, 'rm', '-f', tmp]).catch(() => {});
+  }
 }
 
 /** Import (create or update by id) a single workflow object. */
 export async function importWorkflow(container, workflow) {
+  const tmp = tmpName();
   const payload = JSON.stringify([workflow]);
-  await new Promise((resolve, reject) => {
-    const p = spawn('docker', ['exec', '-i', container, 'sh', '-c', `cat > ${TMP}`], {
-      stdio: ['pipe', 'ignore', 'pipe'],
+  try {
+    await new Promise((resolve, reject) => {
+      const p = spawn('docker', ['exec', '-i', container, 'sh', '-c', `cat > ${tmp}`], {
+        stdio: ['pipe', 'ignore', 'pipe'],
+      });
+      let err = '';
+      p.stderr.on('data', (d) => (err += d));
+      p.on('error', reject);
+      p.on('close', (code) => (code === 0 ? resolve() : reject(new BridgeError(err.trim() || `docker exec exited ${code}`))));
+      p.stdin.end(payload);
     });
-    let err = '';
-    p.stderr.on('data', (d) => (err += d));
-    p.on('error', reject);
-    p.on('close', (code) => (code === 0 ? resolve() : reject(new BridgeError(err.trim() || `docker exec exited ${code}`))));
-    p.stdin.end(payload);
-  });
-  await docker(['exec', container, 'n8n', 'import:workflow', `--input=${TMP}`]);
+    await docker(['exec', container, 'n8n', 'import:workflow', `--input=${tmp}`]);
+  } finally {
+    docker(['exec', container, 'rm', '-f', tmp]).catch(() => {});
+  }
 }

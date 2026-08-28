@@ -19,11 +19,27 @@ export function sessionDir(cfg, wf) {
   return path.resolve(cfg.dir, `${slug(wf.name)}-${wf.id}`);
 }
 
+/** Find the local session folder for a workflow id (folders are named <slug>-<id>). */
+export function findLocal(cfg, id) {
+  const base = path.resolve(cfg.dir);
+  if (fs.existsSync(base)) {
+    const hit = fs.readdirSync(base).find((d) => d.endsWith(`-${id}`));
+    if (hit) return path.join(base, hit, 'workflow.json');
+  }
+  return null;
+}
+
 /** Parse + sanity-check a local workflow file. Throws BridgeError with a friendly message. */
 function readWorkflowFile(file) {
+  let raw;
+  try {
+    raw = fs.readFileSync(file, 'utf8');
+  } catch {
+    throw new BridgeError(`${file} not found — run "n8n-codex pull <id>" first.`);
+  }
   let wf;
   try {
-    wf = JSON.parse(fs.readFileSync(file, 'utf8'));
+    wf = JSON.parse(raw);
   } catch (err) {
     throw new BridgeError(`workflow.json is not valid JSON (${err.message}) — nothing was deployed.`);
   }
@@ -49,6 +65,8 @@ export async function pull(cfg, id) {
   const [wf] = await exportWorkflows(cfg.container, id);
   if (!wf) throw new BridgeError(`Workflow "${id}" not found in n8n.`);
   const dir = sessionDir(cfg, wf);
+  const existing = findLocal(cfg, id);
+  if (existing && path.dirname(existing) !== dir) fs.renameSync(path.dirname(existing), dir);
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'workflow.json');
   fs.writeFileSync(file, JSON.stringify(wf, null, 2) + '\n');
@@ -65,9 +83,10 @@ export async function push(cfg, file) {
 
 /**
  * Watch a workflow file; deploy on every change.
- * Returns { stop, lastPushed } — lastPushed() gives the mtime of the last successful push.
+ * `log` overrides the output sink (default console.log).
+ * Returns { stop, lastPushed, deploy } — lastPushed() gives the mtime of the last successful push.
  */
-export function watchFile(cfg, file) {
+export function watchFile(cfg, file, log = console.log) {
   let lastPushed = fs.statSync(file).mtimeMs;
   let busy = false;
   let again = false;
@@ -78,9 +97,9 @@ export function watchFile(cfg, file) {
     try {
       await push(cfg, file);
       lastPushed = mtime;
-      console.log(`${dim(now())} ${ok('✓ deployed to n8n')} ${dim('(refresh the n8n tab)')}`);
+      log(`${dim(now())} ${ok('✓ deployed to n8n')} ${dim('(refresh the n8n tab)')}`);
     } catch (err) {
-      console.log(`${dim(now())} ${warn('✗ ' + err.message)}`);
+      log(`${dim(now())} ${warn('✗ ' + err.message)}`);
     } finally {
       busy = false;
       if (again) { again = false; deploy(fs.statSync(file).mtimeMs); }
@@ -104,7 +123,10 @@ export async function session(cfg, id) {
   console.log(`Workflow ${ok(`"${wf.name}"`)} pulled to ${dim(path.relative(process.cwd(), file) || file)}`);
   console.log(`Saves to workflow.json deploy to n8n automatically — refresh ${dim(cfg.n8nUrl + '/workflow/' + wf.id)} to see them.\n`);
 
-  const watcher = watchFile(cfg, file);
+  const logFile = path.join(dir, 'deploy.log');
+  const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+  const sink = cfg.codex ? (s) => fs.appendFileSync(logFile, strip(s) + '\n') : console.log;
+  const watcher = watchFile(cfg, file, sink);
 
   if (!cfg.codex) {
     console.log('Watching for changes (Ctrl-C to stop). Edit workflow.json with any editor.');
@@ -113,7 +135,8 @@ export async function session(cfg, id) {
     return;
   }
 
-  console.log(dim('Launching codex — ask it to modify the workflow. Exit codex to end the session.\n'));
+  fs.writeFileSync(logFile, `session started ${new Date().toISOString()}\n`);
+  console.log(dim(`Launching codex — ask it to modify the workflow. Deploy status: ${path.relative(process.cwd(), logFile)}\n`));
   const code = await new Promise((resolve) => {
     const p = spawn('codex', [], {
       cwd: dir,

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { list, pull, push, session, sessionDir, watchFile } from '../src/bridge.js';
+import { findLocal, list, pull, push, session } from '../src/bridge.js';
 import { serve } from '../src/server.js';
 import { BridgeError } from '../src/docker.js';
 import path from 'node:path';
@@ -76,9 +76,10 @@ try {
 
     case 'push': {
       const id = requireId(arg, 'push <workflow-id>');
-      const { wf, file } = await locate(id);
-      await push(cfg, file);
-      console.log(`deployed "${wf.name}" — refresh the n8n tab.`);
+      const file = findLocal(cfg, id);
+      if (!file) throw new BridgeError(`No local copy of "${id}" in ${cfg.dir} — run: n8n-codex pull ${id}`);
+      const pushed = await push(cfg, file);
+      console.log(`deployed "${pushed.name}" — refresh the n8n tab.`);
       break;
     }
 
@@ -97,11 +98,3 @@ try {
   process.exit(1);
 }
 
-/** Find the local session folder for an id (matches the pull naming scheme). */
-async function locate(id) {
-  const { exportWorkflows, ensureContainer } = await import('../src/docker.js');
-  await ensureContainer(cfg.container);
-  const [wf] = await exportWorkflows(cfg.container, id);
-  if (!wf) throw new BridgeError(`Workflow "${id}" not found in n8n.`);
-  return { wf, file: path.join(sessionDir(cfg, wf), 'workflow.json') };
-}

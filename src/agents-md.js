@@ -32,5 +32,8 @@ local n8n instance. There is no separate deploy step.
 Remind the user to refresh their n8n browser tab to see the update on the canvas.
 If the workflow is *active* (has live triggers), they should toggle it off and on
 in the n8n UI so triggers reload.
+
+After each save, check \`deploy.log\` (in this folder): a new \`✓ deployed\` line means
+your change is live in n8n; a \`✗\` line explains why it was rejected — fix and save again.
 `;
 }

@@ -5,6 +5,11 @@ import { BridgeError } from './docker.js';
 /** In-memory chat threads: workflowId -> { threadId, busy }. Lives as long as the dashboard. */
 const sessions = new Map();
 
+/** True while a codex turn is editing this workflow — used to lock out concurrent edits. */
+export function isBusy(id) {
+  return sessions.get(id)?.busy === true;
+}
+
 function preamble(cfg, id, name) {
   return `You are helping a student edit their n8n workflow through the "n8n" MCP tools
 (list_workflows, get_workflow, update_workflow). Rules:

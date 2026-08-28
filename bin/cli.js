@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { findLocal, list, pull, push, session } from '../src/bridge.js';
+import { findLocal, list, pull, push, restore, session } from '../src/bridge.js';
 import { serve } from '../src/server.js';
 import { BridgeError } from '../src/docker.js';
 import path from 'node:path';
@@ -13,6 +13,7 @@ Usage:
   n8n-codex pull <id>          just download workflow.json (+ AGENTS.md)
   n8n-codex push <id>          deploy your local workflow.json
   n8n-codex watch <id>         auto-deploy on save, without launching codex
+  n8n-codex restore <id>       undo the AI's last saved change (repeat to go further back)
   n8n-codex setup              register the n8n MCP server with codex (run once)
   n8n-codex mcp                run the MCP server (codex launches this itself)
 
@@ -101,6 +102,14 @@ try {
       if (!file) throw new BridgeError(`No local copy of "${id}" in ${cfg.dir} — run: n8n-codex pull ${id}`);
       const pushed = await push(cfg, file);
       console.log(`deployed "${pushed.name}" — refresh the n8n tab.`);
+      break;
+    }
+
+    case 'restore': {
+      const id = requireId(arg, 'restore <workflow-id>');
+      const { wf, when, remaining } = await restore(cfg, id);
+      console.log(`Restored "${wf.name}" to its state from ${when} — refresh the n8n tab.`);
+      console.log(remaining ? `${remaining} older backup(s) remain; run again to go further back.` : 'No older backups remain.');
       break;
     }
 

@@ -78,15 +78,23 @@ n8n-codex setup         # register the n8n MCP server with codex (run once)
 n8n-codex mcp           # the MCP server itself (codex launches this; not for humans)
 ```
 
-## Rules of the road
+## Safety
 
-- **Edit in one place at a time.** While chatting or in a file session, don't also edit
-  the same workflow in the n8n UI — the last save wins.
-- Invalid JSON is never deployed; the session just shows `✗` and waits for the next save.
+- **The canvas locks while the AI works.** During a chat turn the embedded editor is
+  covered by a lock screen, and any save you attempt to that workflow is rejected
+  until the AI finishes — no more two-writers accidents.
+- **Every AI change is backed up first.** Before each save, the previous state is
+  snapshotted to `~/.n8n-codex/backups/<workflow-id>/` (the newest 30 are kept).
+- **Undo from the terminal:** `n8n-codex restore <id>` puts back the state before the
+  last saved change; run it again to go further back.
+- You can hide the chat with the ⟩ button — the AI keeps working, the canvas keeps
+  updating, and the 💬 rail blinks when there's a new reply.
+- Invalid workflow JSON is never deployed — it's rejected with an error instead.
 - If a workflow is **active**, toggle it off/on in the n8n UI after editing so its
   triggers reload.
-- Credentials are never stored in `workflow.json` (only credential *references*), so the
-  files are safe to share or commit.
+- Credentials are never stored in workflow JSON (only credential *references*), so
+  the files are safe to share or commit.
+
 
 ## Troubleshooting
 

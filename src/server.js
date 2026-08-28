@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { list } from './bridge.js';
-import { chatTurn } from './chat.js';
+import { chatTurn, isBusy } from './chat.js';
 
 const CSS = `
   :root { color-scheme: light dark; }
@@ -80,9 +80,27 @@ const CHAT = (cfg, id) => `<!doctype html>
 <title>Chat — n8n-codex</title>
 <style>${CSS}
   body { display: flex; height: 100dvh; }
+  .stage { position: relative; flex: 1; min-width: 0; display: flex; }
   #canvas { flex: 1; border: none; min-width: 0; }
+  #lock { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.45); backdrop-filter: blur(1.5px); z-index: 5; }
+  #lock.on { display: flex; }
+  #lock div { background: #1d1d1f; color: #fff; padding: .8rem 1.2rem; border-radius: 12px;
+    font-size: .95rem; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
   aside { width: 420px; max-width: 45vw; display: flex; flex-direction: column;
     border-left: 1px solid rgba(128,128,128,.25); padding: .8rem 1rem 1rem; }
+  body.collapsed aside { display: none; }
+  #rail { display: none; width: 44px; border-left: 1px solid rgba(128,128,128,.25);
+    align-items: center; justify-content: center; cursor: pointer; position: relative; }
+  #rail:hover { background: rgba(128,128,128,.1); }
+  #rail span { writing-mode: vertical-rl; font-size: .85rem; opacity: .8; user-select: none; }
+  #rail .dot { display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 10px; height: 10px; border-radius: 99px; background: #e94e63;
+    animation: pulse 1.2s ease-in-out infinite; }
+  #rail.unread .dot { display: block; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  body.collapsed #rail { display: flex; }
+  #collapse { margin-left: auto; }
   header { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; padding-bottom: .4rem; }
   header .grow { flex: 1; font-weight: 600; }
   #msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .6rem; padding: .6rem 0; }
@@ -104,14 +122,19 @@ const CHAT = (cfg, id) => `<!doctype html>
 </style>
 </head>
 <body>
-<iframe id="canvas" src="/workflow/${id}" title="n8n canvas"></iframe>
+<div class="stage">
+  <iframe id="canvas" src="/workflow/${id}" title="n8n canvas"></iframe>
+  <div id="lock"><div>🔒 The AI is editing this workflow — the canvas unlocks when it's done.</div></div>
+</div>
+<div id="rail" title="Open the chat"><span>💬 Chat</span><i class="dot"></i></div>
 <aside>
   <header>
     <h1><a href="/"><span>n8n</span>-codex</a></h1>
     <span id="wfname" class="grow">…</span>
+    <button id="collapse" type="button" title="Hide the chat">⟩</button>
   </header>
   <div id="msgs">
-    <div class="msg bot">Hi! Tell me what this workflow should do and I'll build it — you'll see the canvas on the left update as I work.</div>
+    <div class="msg bot">Hi! Tell me what this workflow should do and I'll build it — you'll see the canvas on the left update as I work. You can hide me with ⟩ while I work; I'll blink when there's news.</div>
   </div>
   <form id="f">
     <textarea id="inp" rows="2" placeholder="e.g. add an HTTP Request node that fetches a random joke" autofocus></textarea>
@@ -125,6 +148,19 @@ const inp = document.getElementById('inp');
 const send = document.getElementById('send');
 const canvas = document.getElementById('canvas');
 const toolNames = { list_workflows: 'looking at your workflows', get_workflow: 'reading the workflow', update_workflow: 'saving to n8n' };
+const lock = document.getElementById('lock');
+const rail = document.getElementById('rail');
+
+// chat panel collapse
+const collapsed = (on) => {
+  document.body.classList.toggle('collapsed', on);
+  if (!on) rail.classList.remove('unread');
+  localStorage.setItem('n8n-codex-collapsed', on ? '1' : '');
+};
+document.getElementById('collapse').onclick = () => collapsed(true);
+rail.onclick = () => collapsed(false);
+if (localStorage.getItem('n8n-codex-collapsed')) collapsed(true);
+const notify = () => { if (document.body.classList.contains('collapsed')) rail.classList.add('unread'); };
 
 fetch('/api/workflows').then(r => r.json()).then(rows => {
   const w = rows.find(w => w.id === id);
@@ -146,6 +182,7 @@ document.getElementById('f').onsubmit = async (e) => {
   if (!message || send.disabled) return;
   inp.value = '';
   send.disabled = true;
+  lock.classList.add('on');
   add('msg user', message);
   const typing = add('typing', 'thinking…');
   try {
@@ -170,8 +207,9 @@ document.getElementById('f').onsubmit = async (e) => {
         else if (ev.kind === 'tool_done' && ev.text === 'update_workflow' && ev.ok) {
           add('tool', '✓ saved — updating the canvas');
           canvas.contentWindow.location.reload();
+          notify();
         }
-        else if (ev.kind === 'reply') add('msg bot', ev.text);
+        else if (ev.kind === 'reply') { add('msg bot', ev.text); notify(); }
         else if (ev.kind === 'error') add('err', ev.text);
         msgs.scrollTop = msgs.scrollHeight;
       }
@@ -181,6 +219,7 @@ document.getElementById('f').onsubmit = async (e) => {
   } finally {
     typing.remove();
     send.disabled = false;
+    lock.classList.remove('on');
     inp.focus();
   }
 };
@@ -257,6 +296,15 @@ export function serve(cfg) {
       if (req.url === '/') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         res.end(DASHBOARD(cfg));
+        return;
+      }
+
+      // safety: while the AI is editing a workflow, reject the student's own
+      // saves to that workflow coming through the embedded editor
+      const wfWrite = req.url.match(/^\/rest\/workflows\/([A-Za-z0-9_-]+)/);
+      if (wfWrite && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && isBusy(wfWrite[1])) {
+        res.writeHead(423, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ message: 'The AI is editing this workflow right now — wait for it to finish, then try again.' }));
         return;
       }
 

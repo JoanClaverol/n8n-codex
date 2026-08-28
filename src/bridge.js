@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { BridgeError, ensureContainer, exportWorkflows, importWorkflow } from './docker.js';
+import { BridgeError, backupDir, ensureContainer, exportWorkflows, importWorkflow, importWorkflowRaw } from './docker.js';
 import { agentsMd } from './agents-md.js';
 
 const ok = (s) => `\x1b[32m${s}\x1b[0m`;
@@ -58,6 +58,19 @@ export async function list(cfg) {
     active: w.active === true,
     nodes: Array.isArray(w.nodes) ? w.nodes.length : 0,
   }));
+}
+
+/** Undo the last saved change: restore the newest backup and consume it (repeat to go further back). */
+export async function restore(cfg, id) {
+  const dir = backupDir(id);
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort() : [];
+  if (!files.length) throw new BridgeError(`No backups for "${id}" yet — backups are taken automatically before every AI change.`);
+  const latest = path.join(dir, files[files.length - 1]);
+  const wf = JSON.parse(fs.readFileSync(latest, 'utf8'));
+  await ensureContainer(cfg.container);
+  await importWorkflowRaw(cfg.container, wf);
+  fs.unlinkSync(latest);
+  return { wf, when: files[files.length - 1].replace('.json', ''), remaining: files.length - 1 };
 }
 
 export async function pull(cfg, id) {

@@ -1,11 +1,33 @@
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const exec = promisify(execFile);
 let seq = 0;
 const tmpName = () => `/tmp/.n8n-codex-${process.pid}-${++seq}.json`;
 
 export class BridgeError extends Error {}
+
+export const backupDir = (id) => path.join(os.homedir(), '.n8n-codex', 'backups', id);
+
+/** Best-effort snapshot of a workflow's current state before it is overwritten. */
+async function backupBefore(container, id) {
+  if (!id) return;
+  try {
+    const [current] = await exportWorkflows(container, id);
+    if (!current) return;
+    const dir = backupDir(id);
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.writeFileSync(path.join(dir, `${stamp}.json`), JSON.stringify(current, null, 2));
+    const files = fs.readdirSync(dir).sort();
+    for (const f of files.slice(0, -30)) fs.unlinkSync(path.join(dir, f)); // keep newest 30
+  } catch {
+    /* backups never block a save */
+  }
+}
 
 async function docker(args) {
   try {
@@ -50,8 +72,14 @@ export async function exportWorkflows(container, id) {
   }
 }
 
-/** Import (create or update by id) a single workflow object. */
+/** Import (create or update by id) a single workflow object, snapshotting the previous state. */
 export async function importWorkflow(container, workflow) {
+  await backupBefore(container, workflow.id);
+  return importWorkflowRaw(container, workflow);
+}
+
+/** Import without taking a backup — used by restore, which consumes backups instead. */
+export async function importWorkflowRaw(container, workflow) {
   const tmp = tmpName();
   const payload = JSON.stringify([workflow]);
   try {

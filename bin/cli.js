@@ -56,9 +56,12 @@ function requireId(id, usage) {
 
 try {
   switch (cmd) {
-    case undefined:
+    case undefined: {
+      const { preflight } = await import('../src/preflight.js');
+      if (!(await preflight(cfg))) process.exit(1);
       serve(cfg);
       break;
+    }
 
     case 'mcp': {
       const { serveMcp } = await import('../src/mcp.js');

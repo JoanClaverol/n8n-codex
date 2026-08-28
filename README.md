@@ -1,84 +1,72 @@
 # n8n-codex
 
-Edit your local [n8n](https://n8n.io) workflows with the [Codex CLI](https://github.com/openai/codex).
-
-n8n stores workflows inside a database, not as files — so AI coding tools can't touch them
-directly. `n8n-codex` bridges that gap: it pulls a workflow out of n8n into a real
-`workflow.json`, launches Codex in that folder (with instructions on how n8n workflows work),
-and **auto-deploys every save back to n8n**.
+Build [n8n](https://n8n.io) workflows by chatting with an AI — and watch the canvas
+update live while you talk.
 
 ```
-┌─────────┐  pull   ┌────────────────┐  edit   ┌───────┐
-│   n8n   │ ──────► │ workflow.json  │ ◄────── │ codex │
-│ (Docker)│ ◄────── │  + AGENTS.md   │         └───────┘
-└─────────┘ deploy  └────────────────┘
-            on save
+┌──────────────────────────────┬──────────────┐
+│                              │  you:  add a │
+│      n8n canvas (live)       │  joke node…  │
+│                              │  ai: ✓ saved │
+└──────────────────────────────┴──────────────┘
+        one browser window, port 5680
 ```
 
-## Prerequisites
+## For students — one-time setup (~5 min)
 
-1. **Docker Desktop** running n8n in a container named `n8n`:
-   ```sh
-   docker volume create n8n_data
-   docker run -d --name n8n -p 5678:5678 -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n
-   ```
-2. **Node.js 18+** — https://nodejs.org
-3. **Codex CLI** — `npm install -g @openai/codex`, then `codex login`
-
-## Install
+You already have Docker and n8n running. Three more steps, copy-paste each line
+into a terminal:
 
 ```sh
-git clone <this-repo-url>
-cd n8n-codex
-npm install -g .
-n8n-codex setup        # registers the n8n MCP server with codex (once)
+npm install -g @openai/codex      # 1. the AI assistant  (needs Node.js from nodejs.org)
+codex login                       # 2. sign in with the ChatGPT account
+git clone <this-repo-url> && cd n8n-codex && npm install -g .   # 3. this tool
 ```
 
-Works on macOS, Windows, and Linux. To update later: `git pull && npm install -g .`
-inside the folder.
-
-## Use
-
-**Easiest path — the dashboard:**
+## Every day after that
 
 ```sh
 n8n-codex
 ```
 
-Opens http://localhost:5680 with a list of your workflows. Click **Chat** on the one
-you want and just talk to it:
+That's it. It checks everything (and starts n8n for you if it's stopped), then opens
+http://localhost:5680. Click **Chat** on a workflow and just say what you want:
 
 > add an HTTP Request node that fetches a random joke from
 > https://official-joke-api.appspot.com/random_joke and connect it after the trigger
 
-The AI reads and updates the workflow in n8n directly (via MCP tools) and tells you
-when it saved. Refresh the n8n tab to see each change. The conversation remembers
-context, so "actually, undo that" works.
+The n8n canvas sits right next to the chat and refreshes itself every time the AI
+saves. You can say things like "actually, undo that" or "explain what this workflow
+does" — the conversation remembers context.
 
-**Prefer the terminal?** Two more ways, same result:
+Keep the terminal window open while you work; Ctrl-C stops the tool.
 
-- `codex` anywhere — after `n8n-codex setup`, Codex has `list_workflows`,
-  `get_workflow`, and `update_workflow` tools. Say "add a Set node to my workflow
-  <id>" in any codex conversation.
-- A file-based session (see below) if you want to inspect or hand-edit the JSON.
+---
 
-**File-based session, if you know the workflow id** (it's in the n8n URL:
-`http://localhost:5678/workflow/<id>`):
+## How it works (for the curious)
 
-```sh
-n8n-codex 8ttNSVVkk2MYIaCf
-```
+n8n stores workflows in a database, not files. `n8n-codex` exposes them to the
+[Codex CLI](https://github.com/openai/codex) two ways:
 
-This pulls the workflow to `./n8n-workflows/<name>-<id>/workflow.json` and opens Codex
-there. Ask Codex things like:
+- **MCP tools** (`list_workflows`, `get_workflow`, `update_workflow`) — registered
+  automatically; any codex conversation can edit your workflows, including the
+  dashboard chat, which drives `codex exec` behind the scenes.
+- **A file bridge** — `n8n-codex <workflow-id>` pulls a workflow to
+  `./n8n-workflows/<name>-<id>/workflow.json`, opens codex there, and auto-deploys
+  every save. Useful when you want to see or hand-edit the JSON.
 
-> add an HTTP Request node that fetches a random joke from
-> https://official-joke-api.appspot.com/random_joke and connect it after the trigger
+The dashboard also proxies n8n through its own port so the canvas can live in an
+iframe beside the chat and reload after each save.
 
-Every time Codex (or you) saves `workflow.json`, it is validated and deployed to n8n.
-**Refresh the n8n browser tab** to see changes on the canvas.
+### Other ways to edit (optional)
 
-### Other commands
+- **Plain codex in a terminal** — codex has the n8n tools everywhere, so any codex
+  conversation can say "add a Set node to my workflow <id>".
+- **File-based session** — `n8n-codex <workflow-id>` (the id is in the n8n URL) pulls
+  the workflow to `./n8n-workflows/<name>-<id>/workflow.json`, opens codex there, and
+  auto-deploys every save. Good for inspecting or hand-editing the JSON.
+
+### All commands
 
 ```sh
 n8n-codex list          # all workflows with ids
@@ -92,8 +80,8 @@ n8n-codex mcp           # the MCP server itself (codex launches this; not for hu
 
 ## Rules of the road
 
-- **Edit in one place at a time.** While a session is running, don't also edit the same
-  workflow in the n8n UI — the file wins on save, the UI wins on the next pull.
+- **Edit in one place at a time.** While chatting or in a file session, don't also edit
+  the same workflow in the n8n UI — the last save wins.
 - Invalid JSON is never deployed; the session just shows `✗` and waits for the next save.
 - If a workflow is **active**, toggle it off/on in the n8n UI after editing so its
   triggers reload.
@@ -105,9 +93,8 @@ n8n-codex mcp           # the MCP server itself (codex launches this; not for hu
 | Symptom | Fix |
 |---|---|
 | `Docker CLI not found` | Install/start Docker Desktop |
-| `No Docker container named "n8n"` | Run the `docker run` command from Prerequisites |
+| `no n8n container found` | Start Docker Desktop; or `n8n-codex --container=<your-name>` |
 | Chat says codex is not logged in | Run `codex login` once |
 | `Port 5680 is already in use` | Dashboard already running — just open http://localhost:5680 |
 | `codex not found on PATH` | `npm install -g @openai/codex` (session keeps watching meanwhile) |
 | Changes not visible in n8n | Refresh the browser tab |
-| Different container name | `n8n-codex --container=my-n8n <id>` |

@@ -4,6 +4,7 @@
   "description": "Edit local n8n workflows with the Codex CLI — pull a workflow to a file, let AI edit it, auto-deploy on save.",
   "type": "module",
   "bin": { "n8n-codex": "bin/cli.js" },
+  "scripts": { "test": "node --test \"test/*.test.js\"" },
   "files": ["bin", "src", "README.md"],
   "engines": { "node": ">=18" },
   "private": true,

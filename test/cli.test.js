@@ -1,0 +1,42 @@
+// CLI argument validation: beginners must get one clear line, never a stack.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'cli.js');
+
+function run(args) {
+  return new Promise((resolve) => {
+    execFile(process.execPath, [cli, ...args], (err, stdout, stderr) =>
+      resolve({ code: err?.code ?? 0, stdout, stderr }));
+  });
+}
+
+test('--help exits 0 and lists the options', async () => {
+  const r = await run(['--help']);
+  assert.equal(r.code, 0);
+  assert.match(r.stdout, /--container=<name>/);
+});
+
+test('invalid ports are rejected with a clear message', async () => {
+  for (const bad of ['--port=abc', '--port=0', '--port=70000', '--port=5.5']) {
+    const r = await run([bad, 'list']);
+    assert.equal(r.code, 1, `${bad} must exit 1`);
+    assert.match(r.stderr, /Invalid --port value/);
+    assert.ok(!r.stderr.includes('at '), 'no stack trace for beginners');
+  }
+});
+
+test('https n8n URLs are rejected up front', async () => {
+  const r = await run(['--n8n-url=https://example.com', 'list']);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /http:\/\//);
+});
+
+test('unknown options are rejected with usage help', async () => {
+  const r = await run(['--bogus']);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /Unknown option: --bogus/);
+});

@@ -18,6 +18,12 @@ async function run(cmd, args, opts = {}) {
 // without a shell (CVE-2024-27980 hardening). All args here are literals.
 const codexOpts = { shell: process.platform === 'win32' };
 
+/** Launch `codex --version` the same way preflight does (shell for the
+ *  Windows .cmd shim). Exported so tests can exercise the platform quirk. */
+export async function codexVersion() {
+  return run('codex', ['--version'], codexOpts);
+}
+
 async function n8nReachable(url, tries = 1, delayMs = 1000) {
   for (let i = 0; i < tries; i++) {
     try {
@@ -71,7 +77,7 @@ export async function preflight(cfg) {
 
   // 2. codex CLI
   try {
-    await run('codex', ['--version'], codexOpts);
+    await codexVersion();
     ok('AI assistant (codex) is installed');
   } catch {
     bad('codex is not installed');

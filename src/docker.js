@@ -37,7 +37,9 @@ async function docker(args) {
     if (err.code === 'ENOENT') {
       throw new BridgeError('Docker CLI not found. Install Docker Desktop, start it, and try again.');
     }
-    throw new BridgeError((err.stderr || err.message || '').trim());
+    // the n8n CLI logs its error text to stdout, not stderr — keep both
+    const detail = [err.stderr, err.stdout].filter(Boolean).join('\n').trim();
+    throw new BridgeError(detail || (err.message || '').trim());
   }
 }
 
@@ -66,6 +68,10 @@ export async function exportWorkflows(container, id) {
     await docker(['exec', container, 'n8n', 'export:workflow', ...selector, `--output=${tmp}`]);
     const raw = await docker(['exec', container, 'cat', tmp]);
     return JSON.parse(raw);
+  } catch (err) {
+    // fresh install (--id miss or zero workflows): not an error, just empty
+    if (err instanceof BridgeError && /No workflows found/i.test(err.message)) return [];
+    throw err;
   } finally {
     docker(['exec', container, 'rm', '-f', tmp]).catch(() => {});
   }

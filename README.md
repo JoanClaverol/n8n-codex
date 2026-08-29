@@ -107,6 +107,16 @@ n8n-codex mcp           # the MCP server itself (codex launches this; not for hu
 - Credentials are never stored in workflow JSON (only credential *references*), so
   the files are safe to share or commit.
 
+### Tests (for maintainers)
+
+`npm test` runs the suite with Node's built-in runner (no dependencies). Codex
+is faked by a recording shim, so the tests verify exactly what n8n-codex passes
+(argv + stdin) without spending quota; Docker-based tests spin up a throwaway
+n8n container and never touch your real one. CI runs everything on every
+commit (Ubuntu + Windows). `REAL_CODEX=1 npm test` adds one true-integration
+smoke test against the real codex CLI (needs `codex login`, costs quota).
+Tests are not part of the installed package — students never download them.
+
 
 ## Troubleshooting
 

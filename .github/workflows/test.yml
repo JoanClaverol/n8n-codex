@@ -1,0 +1,22 @@
+name: test
+
+# Every commit on every branch, plus pull requests.
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # ubuntu: full suite incl. throwaway-n8n Docker tests and compose contract.
+      # windows: hermetic tests — validates the .cmd-shim spawn and cmd.exe
+      # quoting paths that only exist on Windows; Docker tests self-skip.
+      # The real-codex smoke test is env-flagged and never runs in CI.
+      - run: npm test

@@ -32,7 +32,7 @@ Student's request:`;
  *   { kind: 'reply', text }   — an assistant message
  *   { kind: 'error', text }
  */
-export function chatTurn(cfg, id, name, message, onEvent) {
+export function chatTurn(cfg, id, name, message, model, onEvent) {
   let s = sessions.get(id);
   if (!s) sessions.set(id, (s = { threadId: null, busy: false }));
   if (s.busy) return Promise.reject(new BridgeError('Still working on the previous message — wait for the reply.'));
@@ -40,6 +40,7 @@ export function chatTurn(cfg, id, name, message, onEvent) {
 
   // exec-level options must come BEFORE the `resume` subcommand
   const args = ['exec', '--json', '--skip-git-repo-check', '--approve-for-me', '--cd', os.tmpdir()];
+  if (model) args.push('--model', model);
   if (s.threadId) args.push('resume', s.threadId);
   // `-` = read the prompt from stdin. Never put the student's message in argv:
   // on Windows spawn uses cmd.exe for the .cmd shim, which would interpret

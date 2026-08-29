@@ -8,6 +8,7 @@
 //   FAKE_CODEX_EXIT     — nonzero: write stderr and exit with that code
 //   FAKE_CODEX_THREAD   — thread id to announce (default fake-thread-1)
 import fs from 'node:fs';
+import { createInterface } from 'node:readline';
 
 const argv = process.argv.slice(2);
 
@@ -25,6 +26,49 @@ if (process.env.FAKE_CODEX_LOG) {
   fs.appendFileSync(process.env.FAKE_CODEX_LOG, JSON.stringify({ argv, stdin }) + '\n');
 }
 
+async function runAppServer() {
+  const catalog = process.env.FAKE_CODEX_MODELS
+    ? JSON.parse(process.env.FAKE_CODEX_MODELS)
+    : [
+        {
+          id: 'model-default',
+          model: 'model-default',
+          displayName: 'Default Model',
+          description: 'The default test model.',
+          hidden: false,
+          isDefault: true,
+        },
+        {
+          id: 'model-fast',
+          model: 'model-fast',
+          displayName: 'Fast Model',
+          description: 'The fast test model.',
+          hidden: false,
+          isDefault: false,
+        },
+        {
+          id: 'model-hidden',
+          model: 'model-hidden',
+          displayName: 'Hidden Model',
+          description: 'Not shown in pickers.',
+          hidden: true,
+          isDefault: false,
+        },
+      ];
+  const lines = createInterface({ input: process.stdin });
+  for await (const line of lines) {
+    const request = JSON.parse(line);
+    if (request.method === 'initialize') {
+      console.log(JSON.stringify({ id: request.id, result: { userAgent: 'fake-codex' } }));
+    } else if (request.method === 'model/list') {
+      console.log(JSON.stringify({
+        id: request.id,
+        result: { data: catalog, nextCursor: null },
+      }));
+    }
+  }
+}
+
 const delay = Number(process.env.FAKE_CODEX_DELAY_MS || 0);
 if (delay) await new Promise((r) => setTimeout(r, delay));
 
@@ -33,7 +77,9 @@ if (process.env.FAKE_CODEX_EXIT && process.env.FAKE_CODEX_EXIT !== '0') {
   process.exit(Number(process.env.FAKE_CODEX_EXIT));
 }
 
-if (argv[0] === '--version') {
+if (argv[0] === 'app-server') {
+  await runAppServer();
+} else if (argv[0] === '--version') {
   console.log('codex-cli 0.0.0-fake');
 } else if (argv[0] === 'mcp' && argv[1] === 'list') {
   console.log('n8n  n8n-codex mcp');

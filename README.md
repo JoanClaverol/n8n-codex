@@ -50,6 +50,9 @@ http://localhost:5680. Click **Chat** on a workflow and just say what you want:
 The n8n canvas sits right next to the chat and refreshes itself every time the AI
 saves. You can say things like "actually, undo that" or "explain what this workflow
 does" — the conversation remembers context.
+The model picker in each workflow chat is loaded from your installed Codex CLI, so it
+only shows models currently available to Codex. Your choice is remembered for that
+workflow in the browser and can be changed between messages.
 
 Keep the terminal window open while you work; Ctrl-C stops the tool.
 

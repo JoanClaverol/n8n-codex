@@ -14,6 +14,7 @@ test('real codex answers over stdin', { skip: !enabled && 'set REAL_CODEX=1 to r
     'real-smoke-' + Date.now(),
     'Real Smoke Test',
     'Do NOT use any tools or change anything. Reply with exactly: PONG',
+    null,
     (e) => events.push(e),
   );
   const reply = events.find((e) => e.kind === 'reply');

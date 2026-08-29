@@ -6,12 +6,23 @@ export function hostAllowed(cfg, req) {
   return host === `localhost:${cfg.port}` || host === `127.0.0.1:${cfg.port}` || host === `[::1]:${cfg.port}`;
 }
 
+/** Headers for the upstream request: n8n must see its own host — and a
+ * matching Origin. n8n's push websocket accepts the upgrade, then checks
+ * Origin against Host and drops the connection with "Invalid origin!"
+ * (close 1008) on mismatch; a dead push connection makes the editor refuse
+ * to run workflows ("Lost connection to the server"). */
+function upstreamHeaders(req, target) {
+  const headers = { ...req.headers, host: target.host };
+  if (headers.origin) headers.origin = `http://${target.host}`;
+  return headers;
+}
+
 /** Forward a request to n8n, stripping headers that block iframing. */
 export function proxyToN8n(cfg, req, res) {
   const target = new URL(cfg.n8nUrl);
   const up = http.request(
     { host: target.hostname, port: target.port || 80, path: req.url, method: req.method,
-      headers: { ...req.headers, host: target.host } },
+      headers: upstreamHeaders(req, target) },
     (upRes) => {
       const headers = { ...upRes.headers };
       delete headers['x-frame-options'];
@@ -32,7 +43,7 @@ export function proxyUpgrade(cfg, req, socket) {
   const target = new URL(cfg.n8nUrl);
   const up = http.request({
     host: target.hostname, port: target.port || 80, path: req.url, method: 'GET',
-    headers: { ...req.headers, host: target.host },
+    headers: upstreamHeaders(req, target),
   });
   up.on('upgrade', (upRes, upSocket, upHead) => {
     const lines = [`HTTP/1.1 101 Switching Protocols`];

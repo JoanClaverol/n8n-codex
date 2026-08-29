@@ -59,6 +59,29 @@ export async function ensureContainer(container) {
   }
 }
 
+/** Host port the container publishes for n8n's internal 5678, or null if unknown. */
+export async function publishedPort(container) {
+  try {
+    const out = (await docker(['inspect', '-f',
+      '{{(index (index .NetworkSettings.Ports "5678/tcp") 0).HostPort}}', container])).trim();
+    return /^\d+$/.test(out) ? Number(out) : null;
+  } catch {
+    return null; // container missing, docker down, or no published port
+  }
+}
+
+/**
+ * Adopt the container's actual published port unless the user pinned --n8n-url.
+ * Best-effort: on any failure cfg keeps its default. Returns true if cfg changed.
+ */
+export async function resolveN8nUrl(cfg) {
+  if (cfg.n8nUrlExplicit) return false;
+  const port = await publishedPort(cfg.container);
+  if (!port || cfg.n8nUrl === `http://localhost:${port}`) return false;
+  cfg.n8nUrl = `http://localhost:${port}`;
+  return true;
+}
+
 /** Export one workflow (by id) or all workflows. Returns an array. */
 export async function exportWorkflows(container, id) {
   const tmp = tmpName();

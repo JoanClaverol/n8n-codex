@@ -1,6 +1,7 @@
-// Docker bridge round-trip against a throwaway n8n container (no ports, no
-// volume — never touches a student install): pull → edit → push (with auto
-// backup) → restore, plus the invalid-input guard rails.
+// Docker bridge round-trip against a throwaway n8n container (random loopback
+// port, no volume — never touches a student install): pull → edit → push (with
+// auto backup) → restore, plus the invalid-input guard rails and n8n-url
+// discovery from the container's published port.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -12,7 +13,7 @@ const docker = await hasDocker();
 
 test('pull → push → restore round-trip', { skip: !docker && 'no linux docker daemon' }, async (t) => {
   const { pull, push, restore } = await import('../src/bridge.js');
-  const { backupDir, exportWorkflows } = await import('../src/docker.js');
+  const { backupDir, exportWorkflows, publishedPort, resolveN8nUrl } = await import('../src/docker.js');
 
   const id = testWorkflowId();
   const seed = seedWorkflow(id, 'bridge self-test');
@@ -20,6 +21,18 @@ test('pull → push → restore round-trip', { skip: !docker && 'no linux docker
   const cfg = { container, dir: fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-test-')) };
   t.after(() => fs.rmSync(cfg.dir, { recursive: true, force: true }));
   t.after(() => fs.rmSync(backupDir(id), { recursive: true, force: true }));
+
+  // n8n-url discovery: the container's real published port wins over the
+  // course-convention default, but never overrides an explicit --n8n-url
+  const port = await publishedPort(container);
+  assert.ok(Number.isInteger(port) && port > 0, 'published host port discovered');
+  const auto = { container, n8nUrl: 'http://localhost:5678' };
+  assert.equal(await resolveN8nUrl(auto), true);
+  assert.equal(auto.n8nUrl, `http://localhost:${port}`);
+  const pinned = { container, n8nUrl: 'http://localhost:9999', n8nUrlExplicit: true };
+  assert.equal(await resolveN8nUrl(pinned), false);
+  assert.equal(pinned.n8nUrl, 'http://localhost:9999', 'explicit URL untouched');
+  assert.equal(await publishedPort('no-such-container-xyz'), null);
 
   // pull
   const { wf, file } = await pull(cfg, id);

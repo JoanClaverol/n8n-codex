@@ -8,7 +8,8 @@
 export function parseArgs(argv) {
   const cfg = {
     container: 'n8n',
-    n8nUrl: 'http://localhost:5678',
+    n8nUrl: 'http://localhost:5678', // course convention — adopted from docker when it differs (resolveN8nUrl)
+    n8nUrlExplicit: false,
     dir: './n8n-workflows',
     port: 5680,
     codex: true,
@@ -20,7 +21,10 @@ export function parseArgs(argv) {
     if (a === '--no-codex') cfg.codex = false;
     else if (a === '--no-open') cfg.open = false;
     else if (a.startsWith('--container=')) cfg.container = a.slice('--container='.length);
-    else if (a.startsWith('--n8n-url=')) cfg.n8nUrl = a.slice('--n8n-url='.length).replace(/\/$/, '');
+    else if (a.startsWith('--n8n-url=')) {
+      cfg.n8nUrl = a.slice('--n8n-url='.length).replace(/\/$/, '');
+      cfg.n8nUrlExplicit = true;
+    }
     else if (a.startsWith('--dir=')) cfg.dir = a.slice('--dir='.length);
     else if (a.startsWith('--port=')) {
       cfg.port = Number(a.slice('--port='.length));

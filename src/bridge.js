@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { backupDir, ensureContainer, exportWorkflows, importWorkflow, importWorkflowRaw } from './docker.js';
+import { backupDir, ensureContainer, exportWorkflows, importWorkflow, importWorkflowRaw, resolveN8nUrl } from './docker.js';
 import { BridgeError } from './error.js';
 import { agentsMd } from './agent/agents-md.js';
 
@@ -144,6 +144,7 @@ export function watchFile(cfg, file, log = console.log) {
 
 /** Pull → watch → launch codex → final sync on exit. The main student command. */
 export async function session(cfg, id) {
+  await resolveN8nUrl(cfg); // links printed below should use the real port
   const { wf, dir, file } = await pull(cfg, id);
   console.log(`Workflow ${ok(`"${wf.name}"`)} pulled to ${dim(path.relative(process.cwd(), file) || file)}`);
   console.log(`Saves to workflow.json deploy to n8n automatically — refresh ${dim(cfg.n8nUrl + '/workflow/' + wf.id)} to see them.\n`);

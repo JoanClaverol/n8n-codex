@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { parseArgs } from '../src/cli/args.js';
 const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'cli.js');
 
 function run(args) {
@@ -39,4 +40,13 @@ test('unknown options are rejected with usage help', async () => {
   const r = await run(['--bogus']);
   assert.equal(r.code, 1);
   assert.match(r.stderr, /Unknown option: --bogus/);
+});
+
+test('an explicit --n8n-url is marked so port discovery never overrides it', () => {
+  const auto = parseArgs(['list']);
+  assert.equal(auto.cfg.n8nUrlExplicit, false);
+  assert.equal(auto.cfg.n8nUrl, 'http://localhost:5678');
+  const pinned = parseArgs(['--n8n-url=http://localhost:9999/', 'list']);
+  assert.equal(pinned.cfg.n8nUrlExplicit, true);
+  assert.equal(pinned.cfg.n8nUrl, 'http://localhost:9999', 'trailing slash stripped');
 });

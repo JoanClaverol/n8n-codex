@@ -95,13 +95,14 @@ export async function hasCompose() {
 }
 
 /**
- * Start a throwaway n8n container (no ports, no volume — fully isolated from
- * any student install), seed it with `wf`, and remove it in t.after().
+ * Start a throwaway n8n container (random loopback-only port, no volume —
+ * fully isolated from any student install), seed it with `wf`, and remove it
+ * in t.after().
  * Readiness probe = the seed import succeeding, i.e. DB migrated + CLI usable.
  */
 export async function startThrowawayN8n(t, wf) {
   const name = `n8n-codex-test-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
-  await exec('docker', ['run', '-d', '--name', name, N8N_IMAGE]);
+  await exec('docker', ['run', '-d', '--name', name, '-p', '127.0.0.1:0:5678', N8N_IMAGE]);
   t.after(async () => {
     try {
       await exec('docker', ['rm', '-f', name]);

@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { resolveN8nUrl } from './docker.js';
 
 const exec = promisify(execFile);
 const ok = (s) => console.log(`  \x1b[32m✓\x1b[0m ${s}`);
@@ -45,10 +46,12 @@ export async function preflight(cfg) {
   try {
     const state = (await run('docker', ['inspect', '-f', '{{.State.Running}}', cfg.container])).trim();
     if (state === 'true') {
-      ok('n8n is running');
+      if (await resolveN8nUrl(cfg)) ok(`n8n is running on ${cfg.n8nUrl} (adopted from the container)`);
+      else ok('n8n is running');
     } else {
       console.log(`  … n8n container is stopped — starting it for you`);
       await run('docker', ['start', cfg.container]);
+      await resolveN8nUrl(cfg);
       if (await n8nReachable(cfg.n8nUrl, 30)) ok('n8n started');
       else { bad('n8n did not come up'); fix(`check it with: docker logs ${cfg.container}`); usable = false; }
     }

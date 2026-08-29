@@ -21,7 +21,7 @@ async function backupBefore(container, id) {
     fs.mkdirSync(dir, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     fs.writeFileSync(path.join(dir, `${stamp}.json`), JSON.stringify(current, null, 2));
-    const files = fs.readdirSync(dir).sort();
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
     for (const f of files.slice(0, -30)) fs.unlinkSync(path.join(dir, f)); // keep newest 30
   } catch {
     /* backups never block a save */

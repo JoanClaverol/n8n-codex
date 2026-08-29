@@ -169,8 +169,13 @@ export async function session(cfg, id) {
       stdio: 'inherit',
       shell: process.platform === 'win32',
     });
+    // spawn failure emits 'error' AND THEN 'close' (code -2) — in the
+    // stay-watching fallback that 'close' must not resolve the promise,
+    // or we'd exit right after promising to keep watching.
+    let watchingWithoutCodex = false;
     p.on('error', (err) => {
       if (err.code === 'ENOENT') {
+        watchingWithoutCodex = true;
         console.log(warn('codex not found on PATH.') + ' Staying in watch mode instead (Ctrl-C to stop).');
         process.on('SIGINT', () => resolve(0));
       } else {
@@ -178,7 +183,7 @@ export async function session(cfg, id) {
         resolve(1);
       }
     });
-    p.on('close', resolve);
+    p.on('close', (c) => { if (!watchingWithoutCodex) resolve(c); });
   });
 
   // Catch a save that landed after the watcher's last poll.

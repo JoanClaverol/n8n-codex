@@ -4,6 +4,11 @@ export async function streamChatTurn({ workflowId, message, model, onEvent }) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(model ? { message, model } : { message }),
   });
+  if (!response.ok) {
+    const text = (await response.text()).trim();
+    onEvent({ kind: 'error', text: text || `The server said no (HTTP ${response.status}) — try again.` });
+    return;
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';

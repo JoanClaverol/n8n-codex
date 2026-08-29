@@ -45,6 +45,9 @@ export function proxyUpgrade(cfg, req, socket) {
     upSocket.on('error', drop);
     socket.on('error', drop);
   });
+  // n8n answered the handshake with a plain HTTP response (e.g. still
+  // booting) — fail fast so the browser retries instead of hanging.
+  up.on('response', () => socket.destroy());
   up.on('error', () => socket.destroy());
   up.end();
 }

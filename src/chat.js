@@ -32,15 +32,20 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
   let s = sessions.get(id);
   if (!s) sessions.set(id, (s = { threadId: null, busy: false }));
   if (s.busy) return Promise.reject(new BridgeError('Still working on the previous message — wait for the reply.'));
-  s.busy = true;
 
   // Instructions live in AGENTS.md inside the chat dir; rewritten each turn
-  // so a renamed workflow or changed n8n URL stays current.
+  // so a renamed workflow or changed n8n URL stays current. This runs before
+  // the busy flag is set: if it throws, the lock must not leak.
   const dir = chatDir(id);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'AGENTS.md'), chatInstructions(cfg, { id, name }));
+  s.busy = true;
 
-  // exec-level options must come BEFORE the `resume` subcommand
+  // exec-level options must come BEFORE the `resume` subcommand.
+  // --approve-for-me auto-reviews approvals under the workspace-write
+  // sandbox; the workspace is a throwaway tmpdir, so workflow content that
+  // tries to prompt-inject the agent can reach no further than the n8n MCP
+  // tools it already has.
   const args = ['exec', '--json', '--skip-git-repo-check', '--approve-for-me', '--cd', dir];
   if (model) args.push('--model', model);
   if (s.threadId) args.push('resume', s.threadId);

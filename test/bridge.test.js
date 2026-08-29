@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { hasDocker, seedWorkflow, startThrowawayN8n, testWorkflowId } from './helpers.js';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { exec, hasDocker, seedWorkflow, startThrowawayN8n, testWorkflowId } from './helpers.js';
 
 const docker = await hasDocker();
 
@@ -67,4 +69,58 @@ test('pull → push → restore round-trip', { skip: !docker && 'no linux docker
   fs.mkdirSync(backupDir(id), { recursive: true });
   fs.writeFileSync(path.join(backupDir(id), '2026-01-01T00-00-00Z.json'), '{ truncated');
   await assert.rejects(restore(cfg, id), /corrupt/);
+});
+
+// Regression: spawn('codex') failing with ENOENT emits 'error' AND 'close';
+// the close must not end the session — it promised to stay in watch mode.
+test('session keeps watching when codex is missing', {
+  skip: (!docker && 'no linux docker daemon') || (process.platform === 'win32' && 'ENOENT fallback is POSIX-only'),
+}, async (t) => {
+  const { backupDir, exportWorkflows } = await import('../src/docker.js');
+  const id = testWorkflowId();
+  const container = await startThrowawayN8n(t, seedWorkflow(id, 'fallback self-test'));
+
+  // a PATH with docker but no codex, so spawn('codex') fails with ENOENT
+  const shim = fs.mkdtempSync(path.join(os.tmpdir(), 'no-codex-path-'));
+  fs.symlinkSync((await exec('which', ['docker'])).stdout.trim(), path.join(shim, 'docker'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fallback-test-'));
+  t.after(() => fs.rmSync(shim, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(backupDir(id), { recursive: true, force: true }));
+
+  const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'cli.js');
+  const p = spawn(process.execPath, [cli, id, `--container=${container}`, `--dir=${dir}`], {
+    env: { ...process.env, PATH: shim },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  t.after(() => p.kill('SIGKILL'));
+  let out = '';
+  p.stdout.setEncoding('utf8');
+  p.stderr.setEncoding('utf8');
+  p.stdout.on('data', (d) => (out += d));
+  p.stderr.on('data', (d) => (out += d));
+  const exited = new Promise((resolve) => p.on('close', resolve));
+
+  const until = async (probe, what) => {
+    for (let i = 0; i < 60; i++) {
+      if (await probe()) return;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    throw new Error(`timed out waiting for ${what}:\n${out}`);
+  };
+
+  await until(() => out.includes('Staying in watch mode'), 'the fallback message');
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(p.exitCode, null, `session exited right after promising to keep watching:\n${out}`);
+
+  // …and the watcher still deploys saves
+  const folder = fs.readdirSync(dir).find((d) => d.endsWith(`-${id}`));
+  const file = path.join(dir, folder, 'workflow.json');
+  const wf = JSON.parse(fs.readFileSync(file, 'utf8'));
+  wf.name = 'edited while codex missing';
+  fs.writeFileSync(file, JSON.stringify(wf, null, 2));
+  await until(async () => (await exportWorkflows(container, id))[0]?.name === 'edited while codex missing', 'the watch deploy');
+
+  p.kill('SIGINT');
+  assert.equal(await exited, 0, `Ctrl-C should end the session cleanly:\n${out}`);
 });

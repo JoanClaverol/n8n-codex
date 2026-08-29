@@ -66,10 +66,14 @@ function resetChatContext(id) {
   });
 }
 
+/** Bumped on every reset; events from older turns are dropped, not rendered. */
+let chatEpoch = 0;
+
 // ↻ — wipe the context and re-home the chat onto whatever saved workflow the
 // canvas is showing. Cancels a running turn (its stream ends without an error).
 refresh.addEventListener('click', async () => {
   refresh.disabled = true;
+  chatEpoch += 1;
   try {
     const target = canvasWorkflowId();
     await resetChatContext(workflowId);
@@ -78,14 +82,9 @@ refresh.addEventListener('click', async () => {
       location.href = '/chat/' + target;
       return; // page reload finishes the switch
     }
+    // back to the pristine state: greeting only, no leftover text
     messages.replaceChildren(greeting);
     warnedOffWorkflow = false;
-    if (!target) {
-      add('msg bot', 'Fresh start! The canvas isn\u2019t on a saved workflow right now, so I\u2019m still on "'
-        + document.getElementById('wfname').textContent + '".');
-    } else {
-      add('msg bot', 'Fresh start! I\u2019ve forgotten our earlier conversation.');
-    }
   } catch {
     add('err', 'Could not reset the chat — is the dashboard still running?');
   } finally {
@@ -148,15 +147,18 @@ document.getElementById('f').addEventListener('submit', async (event) => {
   warnIfOffWorkflow();
   const typing = add('typing', 'thinking…');
 
+  // events from a turn that predates the last reset must not repaint the
+  // wiped log — the cancelled stream can still flush a queued line or error
+  const epoch = chatEpoch;
   try {
     await streamChatTurn({
       workflowId,
       message,
       model: selectedModel,
-      onEvent: handleEvent,
+      onEvent: (e) => { if (epoch === chatEpoch) handleEvent(e); },
     });
   } catch (err) {
-    add('err', 'Connection lost: ' + err.message);
+    if (epoch === chatEpoch) add('err', 'Connection lost: ' + err.message);
   } finally {
     typing.remove();
     send.disabled = false;

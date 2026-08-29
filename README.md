@@ -182,6 +182,45 @@ workflow in the browser and can be changed between messages.
 
 Keep the terminal window open while you work; Ctrl-C stops the tool.
 
+## Updating or reinstalling
+
+`n8n-codex`, the Codex CLI, and the n8n Docker image are updated separately.
+Stop a running `n8n-codex` with Ctrl-C before updating it.
+
+To update `n8n-codex`, open a terminal in the folder you cloned during setup:
+
+```sh
+cd path/to/n8n-codex
+git pull --ff-only
+npm install -g .
+```
+
+The last command refreshes the global `n8n-codex` command from the checked-out
+source. It is safe to run again. If `git pull` reports local changes, save or
+commit those changes first instead of overwriting them.
+
+To reinstall the command without deleting your workflows or backups:
+
+```sh
+cd path/to/n8n-codex
+npm uninstall -g n8n-codex
+npm install -g .
+```
+
+Workflow data remains in Docker's `n8n_data` volume, and backups remain under
+`~/.n8n-codex/backups/`; neither command removes them.
+
+Optionally update the other two components:
+
+```sh
+npm install -g @openai/codex@latest   # Codex CLI
+docker compose pull                    # latest n8n image (run in this folder)
+docker compose up -d                   # recreate n8n while keeping its data
+```
+
+Run `n8n-codex` afterward. Its setup check verifies the Codex MCP registration
+automatically and repairs it when needed.
+
 ---
 
 ## How it works (for the curious)

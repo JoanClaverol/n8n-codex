@@ -43,6 +43,23 @@ test('chat API refuses non-JSON content types (CSRF simple requests)', async (t)
   assert.equal(res.status, 403);
 });
 
+test('chat reset endpoint: same CSRF gate, then resets without error', async (t) => {
+  const { url } = await startDashboard(t);
+  const blocked = await fetch(url + '/api/chat/abc123/reset', {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain' },
+    body: '{}',
+  });
+  assert.equal(blocked.status, 403, 'drive-by simple POST must not reset a chat');
+  const ok = await fetch(url + '/api/chat/abc123/reset', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(await ok.json(), { ok: true });
+});
+
 test('missing n8n container yields a friendly 500, not a crash', async (t) => {
   const { url } = await startDashboard(t); // container name that does not exist
   const res = await fetch(url + '/api/workflows');

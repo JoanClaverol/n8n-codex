@@ -230,6 +230,10 @@ n8n-codex mcp           # the MCP server itself (codex launches this; not for hu
   last saved change; run it again to go further back.
 - You can hide the chat with the ⟩ button — the AI keeps working, the canvas keeps
   updating, and the 💬 rail blinks when there's a new reply.
+- **Start over with ↻.** The refresh button wipes the conversation (the AI forgets
+  everything, even mid-reply) and re-homes the chat onto whatever saved workflow the
+  canvas is currently showing — handy after navigating the embedded editor somewhere
+  else. If the canvas isn't on a saved workflow, the chat stays on its current one.
 - Invalid workflow JSON is never deployed — it's rejected with an error instead.
 - If a workflow is **active**, toggle it off/on in the n8n UI after editing so its
   triggers reload.

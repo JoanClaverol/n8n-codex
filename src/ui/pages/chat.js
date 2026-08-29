@@ -17,6 +17,7 @@ function renderSidebar() {
   <header>
     ${renderBrand({ linked: true })}
     <span id="wfname" class="grow">…</span>
+    <button id="refresh" type="button" title="Start over — fresh chat on the workflow shown in the canvas">↻</button>
     <button id="collapse" type="button" title="Hide the chat">⟩</button>
   </header>
   <div class="model-bar">

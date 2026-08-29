@@ -1,5 +1,5 @@
 import { list } from '../bridge.js';
-import { chatTurn, isBusy } from '../chat.js';
+import { chatTurn, isBusy, resetChat } from '../chat.js';
 import { listModels } from '../models.js';
 import { renderChatPage } from '../ui/pages/chat.js';
 import { renderDashboardPage } from '../ui/pages/dashboard.js';
@@ -63,6 +63,18 @@ export function createRoutes(cfg) {
       const rows = await list(cfg);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(rows));
+      return true;
+    }
+
+    // wipe the chat context (kills a running turn) — used by the ↻ button
+    const chatReset = req.url.match(/^\/api\/chat\/([A-Za-z0-9_-]+)\/reset$/);
+    if (chatReset && req.method === 'POST') {
+      if (!/^application\/json/.test(req.headers['content-type'] || '')) {
+        res.writeHead(403); res.end('forbidden'); return true;
+      }
+      resetChat(chatReset[1]);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{"ok":true}');
       return true;
     }
 

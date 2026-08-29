@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { installFakeCodex } from './helpers.js';
-import { chatDir, chatTurn, isBusy } from '../src/chat.js';
+import { chatDir, chatTurn, isBusy, resetChat } from '../src/chat.js';
 
 const cfg = { n8nUrl: 'http://localhost:5678' };
 const NASTY = 'add a joke node & del /q * | echo "quoted" %PATH% $(uname)\nsecond line — émoji 🚀';
@@ -78,4 +78,29 @@ test('watchdog: a hung codex turn is killed and frees the busy lock', async (t) 
     /got stuck/,
   );
   assert.equal(isBusy(id), false, 'busy lock released — the next message and editor saves work again');
+});
+
+test('reset: the next turn starts a fresh thread instead of resuming', async (t) => {
+  const fake = installFakeCodex(t, { FAKE_CODEX_THREAD: 't-old-999' });
+  const id = 'wf-reset-' + Date.now();
+  t.after(() => fs.rmSync(chatDir(id), { recursive: true, force: true }));
+  await chatTurn(cfg, id, 'WF', 'first', null, () => {});
+  resetChat(id);
+  assert.equal(fs.existsSync(chatDir(id)), false, 'throwaway workspace removed');
+  await chatTurn(cfg, id, 'WF', 'after reset', null, () => {});
+
+  const calls = fake.calls();
+  assert.equal(calls.length, 2);
+  assert.ok(!calls[1].argv.includes('resume'), 'post-reset turn must not resume the old thread');
+});
+
+test('reset mid-turn: cancels codex cleanly and frees the lock', async (t) => {
+  installFakeCodex(t, { FAKE_CODEX_DELAY_MS: '60000' });
+  const id = 'wf-cancel-' + Date.now();
+  t.after(() => fs.rmSync(chatDir(id), { recursive: true, force: true }));
+  const turn = chatTurn(cfg, id, 'WF', 'slow one', null, () => {});
+  await new Promise((r) => setTimeout(r, 300)); // let codex spawn
+  resetChat(id);
+  await turn; // resolves — no error bubble for a deliberate reset
+  assert.equal(isBusy(id), false, 'lock released immediately');
 });

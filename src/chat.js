@@ -19,6 +19,21 @@ export function isBusy(id) {
   return sessions.get(id)?.busy === true;
 }
 
+/**
+ * Wipe a workflow's chat context: kill any running codex turn (its stream
+ * ends cleanly, without an error bubble), drop the thread so the next
+ * message starts fresh, and remove the throwaway workspace.
+ */
+export function resetChat(id) {
+  const s = sessions.get(id);
+  sessions.delete(id);
+  if (s?.proc) {
+    s.cancelled = true;
+    s.proc.kill();
+  }
+  fs.rmSync(chatDir(id), { recursive: true, force: true });
+}
+
 /** Per-workflow working dir for `codex exec` — its AGENTS.md carries the
  * instructions, so they apply on every turn (not just the first). Workflow
  * ids are [A-Za-z0-9_-], so they are safe as path segments. */
@@ -35,7 +50,7 @@ export function chatDir(id) {
  */
 export function chatTurn(cfg, id, name, message, model, onEvent) {
   let s = sessions.get(id);
-  if (!s) sessions.set(id, (s = { threadId: null, busy: false }));
+  if (!s) sessions.set(id, (s = { threadId: null, busy: false, proc: null, cancelled: false }));
   if (s.busy) return Promise.reject(new BridgeError('Still working on the previous message — wait for the reply.'));
 
   // Instructions live in AGENTS.md inside the chat dir; rewritten each turn
@@ -67,6 +82,7 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: win,
     });
+    s.proc = p;
     // one exit path: whatever settles first clears the lock and the watchdog
     let settled = false;
     const settle = (fn, value) => {
@@ -74,6 +90,7 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
       settled = true;
       clearTimeout(watchdog);
       s.busy = false;
+      s.proc = null;
       fn(value);
     };
     const watchdog = setTimeout(() => {
@@ -115,6 +132,8 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
         : `codex failed to start: ${err.message}`));
     });
     p.on('close', (code) => {
+      // a reset killed this turn on purpose — end the stream without an error bubble
+      if (s.cancelled) return settle(resolve);
       if (code !== 0 && !sawReply) {
         const tail = stderr.trim().split('\n').slice(-3).join('\n');
         settle(reject, new BridgeError(tail || `codex exited with code ${code}`));

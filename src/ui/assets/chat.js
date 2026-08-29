@@ -9,6 +9,8 @@ const send = document.getElementById('send');
 const canvas = document.getElementById('canvas');
 const lock = document.getElementById('lock');
 const rail = document.getElementById('rail');
+const refresh = document.getElementById('refresh');
+const greeting = messages.firstElementChild;
 const toolNames = {
   list_workflows: 'looking at your workflows',
   get_workflow: 'reading the workflow',
@@ -44,6 +46,52 @@ function canvasShowsThisWorkflow() {
     return false; // cross-origin frame — definitely not our workflow
   }
 }
+
+/** The saved workflow the canvas is showing right now, or null (dashboard
+ * views, an unsaved /workflow/new draft, cross-origin pages). */
+function canvasWorkflowId() {
+  try {
+    const match = canvas.contentWindow.location.pathname.match(/^\/workflow\/([A-Za-z0-9_-]+)/);
+    return match && match[1] !== 'new' ? match[1] : null;
+  } catch {
+    return null; // cross-origin frame
+  }
+}
+
+function resetChatContext(id) {
+  return fetch('/api/chat/' + id + '/reset', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
+}
+
+// ↻ — wipe the context and re-home the chat onto whatever saved workflow the
+// canvas is showing. Cancels a running turn (its stream ends without an error).
+refresh.addEventListener('click', async () => {
+  refresh.disabled = true;
+  try {
+    const target = canvasWorkflowId();
+    await resetChatContext(workflowId);
+    if (target && target !== workflowId) {
+      await resetChatContext(target); // the target may have old context of its own
+      location.href = '/chat/' + target;
+      return; // page reload finishes the switch
+    }
+    messages.replaceChildren(greeting);
+    warnedOffWorkflow = false;
+    if (!target) {
+      add('msg bot', 'Fresh start! The canvas isn\u2019t on a saved workflow right now, so I\u2019m still on "'
+        + document.getElementById('wfname').textContent + '".');
+    } else {
+      add('msg bot', 'Fresh start! I\u2019ve forgotten our earlier conversation.');
+    }
+  } catch {
+    add('err', 'Could not reset the chat — is the dashboard still running?');
+  } finally {
+    refresh.disabled = false;
+  }
+});
 
 // n8n navigates with pushState, so the iframe never fires `load` events for
 // in-app moves — check at the moment that matters: when the student sends.

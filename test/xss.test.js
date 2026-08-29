@@ -24,15 +24,20 @@ class El {
 
 test('workflow names render as text, never as markup', async (t) => {
   const { url } = await startDashboard(t);
-  const res = await fetch(url + '/');
-  assert.equal(res.status, 200);
-  const html = await res.text();
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
-  assert.ok(script, 'dashboard page has its inline script');
+  const page = await fetch(url + '/');
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  const scriptPath = html.match(/<script[^>]+src="([^"]*dashboard\.js)"/)?.[1];
+  assert.ok(scriptPath, 'dashboard page references its browser script');
+  const scriptResponse = await fetch(url + scriptPath);
+  assert.equal(scriptResponse.status, 200);
+  const script = await scriptResponse.text();
 
   const created = [];
   const htmlWrites = [];
-  const byId = { status: new El('p'), tbl: new El('table') };
+  const pageData = new El('script');
+  pageData.textContent = JSON.stringify({ n8nUrl: 'http://localhost:5678' });
+  const byId = { status: new El('p'), tbl: new El('table'), 'page-data': pageData };
   const tbody = new El('tbody');
   Object.defineProperty(tbody, 'innerHTML', {
     set(v) { htmlWrites.push(String(v)); this.children = []; },

@@ -1,0 +1,9 @@
+body { max-width: 780px; margin: 3rem auto; padding: 0 1rem; }
+p.sub { opacity: .7; }
+table { border-collapse: collapse; width: 100%; margin-top: 1.5rem; }
+th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid rgba(128,128,128,.25); }
+th { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; opacity: .6; }
+td.name { font-weight: 600; }
+.badge { font-size: .75rem; padding: .1rem .5rem; border-radius: 99px; background: rgba(128,128,128,.15); }
+.badge.on { background: #22a06b22; color: #22a06b; }
+#status { opacity: .6; }

@@ -28,6 +28,7 @@ test('first turn: message arrives verbatim on stdin, instructions via AGENTS.md,
   assert.ok(md.includes(`workflow id "${id}"`), 'instructions name the workflow id');
   assert.ok(md.includes('My "Workflow" & Co'), 'instructions name the workflow');
   assert.ok(/PLAIN TEXT/.test(md), 'instructions demand plain-text replies');
+  assert.ok(/NEVER create a new\n?\s*workflow/.test(md), 'instructions forbid leaving the workflow scope');
 
   assert.deepEqual(events.map((e) => e.kind), ['tool', 'tool_done', 'reply']);
   assert.equal(events[2].text, 'echo:' + call.stdin, 'reply streamed back to the UI');

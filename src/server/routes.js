@@ -94,7 +94,11 @@ export function createRoutes(cfg) {
       }
       const rows = await list(cfg);
       const wf = rows.find((w) => w.id === id);
-      if (!wf) { res.writeHead(404); res.end('workflow not found'); return true; }
+      if (!wf) {
+        res.writeHead(404);
+        res.end('This workflow no longer exists in n8n — it may have been deleted. Go back to the dashboard and pick a workflow.');
+        return true;
+      }
       res.writeHead(200, { 'content-type': 'application/x-ndjson' });
       const emit = (ev) => res.write(JSON.stringify(ev) + '\n');
       try {

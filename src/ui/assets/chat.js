@@ -31,6 +31,32 @@ fetch('/api/workflows').then((response) => response.json()).then((workflows) => 
   document.getElementById('wfname').textContent = workflow ? workflow.name : workflowId;
 }).catch(() => {});
 
+// The chat is pinned to one workflow, but the student can steer the embedded
+// n8n editor anywhere (another workflow, a brand-new draft, external pages).
+// Reloading would clobber whatever they're doing there — and reading a
+// cross-origin frame throws — so only touch the canvas when it still shows
+// THIS workflow.
+function canvasShowsThisWorkflow() {
+  try {
+    const path = canvas.contentWindow.location.pathname;
+    return path === '/workflow/' + workflowId || path.startsWith('/workflow/' + workflowId + '/');
+  } catch {
+    return false; // cross-origin frame — definitely not our workflow
+  }
+}
+
+// n8n navigates with pushState, so the iframe never fires `load` events for
+// in-app moves — check at the moment that matters: when the student sends.
+let warnedOffWorkflow = false;
+function warnIfOffWorkflow() {
+  if (canvasShowsThisWorkflow()) { warnedOffWorkflow = false; return; }
+  if (warnedOffWorkflow) return;
+  warnedOffWorkflow = true;
+  add('msg bot', 'Heads-up: the canvas is showing a different page. This chat only edits "'
+    + document.getElementById('wfname').textContent
+    + '" — for another workflow, go back to the dashboard and open its own Chat.');
+}
+
 function add(className, text) {
   const element = document.createElement('div');
   element.className = className;
@@ -44,8 +70,12 @@ function handleEvent(event) {
   if (event.kind === 'tool') {
     add('tool', '⚙ ' + (toolNames[event.text] || event.text) + '…');
   } else if (event.kind === 'tool_done' && event.text === 'update_workflow' && event.ok) {
-    add('tool', '✓ saved — updating the canvas');
-    canvas.contentWindow.location.reload();
+    if (canvasShowsThisWorkflow()) {
+      add('tool', '✓ saved — updating the canvas');
+      canvas.contentWindow.location.reload();
+    } else {
+      add('tool', '✓ saved — the canvas is showing something else, so it was left alone');
+    }
     notify();
   } else if (event.kind === 'reply') {
     add('msg bot', event.text);
@@ -67,6 +97,7 @@ document.getElementById('f').addEventListener('submit', async (event) => {
   modelPicker.setBusy(true);
   lock.classList.add('on');
   add('msg user', message);
+  warnIfOffWorkflow();
   const typing = add('typing', 'thinking…');
 
   try {

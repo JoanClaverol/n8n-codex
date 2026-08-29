@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { findLocal, list, pull, push, restore, session } from '../src/bridge.js';
 import { serve } from '../src/server.js';
-import { BridgeError } from '../src/docker.js';
+import { BridgeError } from '../src/error.js';
 import path from 'node:path';
 
 const HELP = `n8n-codex — edit n8n workflows with the Codex CLI

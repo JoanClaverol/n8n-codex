@@ -1,5 +1,6 @@
 import readline from 'node:readline';
-import { BridgeError, ensureContainer, exportWorkflows, importWorkflow } from './docker.js';
+import { ensureContainer, exportWorkflows, importWorkflow } from './docker.js';
+import { BridgeError } from './error.js';
 
 const TOOLS = [
   {

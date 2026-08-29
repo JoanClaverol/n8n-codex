@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { BridgeError, backupDir, ensureContainer, exportWorkflows, importWorkflow, importWorkflowRaw } from './docker.js';
+import { backupDir, ensureContainer, exportWorkflows, importWorkflow, importWorkflowRaw } from './docker.js';
+import { BridgeError } from './error.js';
 import { agentsMd } from './agent/agents-md.js';
 
 const ok = (s) => `\x1b[32m${s}\x1b[0m`;

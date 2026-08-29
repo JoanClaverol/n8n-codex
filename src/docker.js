@@ -3,12 +3,11 @@ import { promisify } from 'node:util';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { BridgeError } from './error.js';
 
 const exec = promisify(execFile);
 let seq = 0;
 const tmpName = () => `/tmp/.n8n-codex-${process.pid}-${++seq}.json`;
-
-export class BridgeError extends Error {}
 
 export const backupDir = (id) => path.join(os.homedir(), '.n8n-codex', 'backups', id);
 

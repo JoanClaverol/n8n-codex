@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { BridgeError } from './docker.js';
+import { BridgeError } from './error.js';
 import { chatInstructions } from './agent/chat-instructions.js';
 import { plainText } from './agent/plain-text.js';
 

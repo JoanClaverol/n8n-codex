@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import { BridgeError } from './docker.js';
+import { chatInstructions } from './agent/chat-instructions.js';
+import { plainText } from './agent/plain-text.js';
 
 /** In-memory chat threads: workflowId -> { threadId, busy }. Lives as long as the dashboard. */
 const sessions = new Map();
@@ -10,19 +14,11 @@ export function isBusy(id) {
   return sessions.get(id)?.busy === true;
 }
 
-function preamble(cfg, id, name) {
-  return `You are helping a student edit their n8n workflow through the "n8n" MCP tools
-(list_workflows, get_workflow, update_workflow). Rules:
-
-- Work ONLY on workflow id "${id}" (named "${name}") unless told otherwise.
-- Always call get_workflow first to see the current state before changing anything.
-- update_workflow requires the COMPLETE workflow JSON — never a partial diff.
-- "connections" is keyed by node NAME; renaming a node means updating connections too.
-- New nodes need a fresh UUID id, a unique name, and a sensible position (~220px apart).
-- After a successful update, remind the student to refresh their n8n tab: ${cfg.n8nUrl}/workflow/${id}
-- The student is a beginner: keep replies short, friendly, and jargon-free.
-
-Student's request:`;
+/** Per-workflow working dir for `codex exec` — its AGENTS.md carries the
+ * instructions, so they apply on every turn (not just the first). Workflow
+ * ids are [A-Za-z0-9_-], so they are safe as path segments. */
+export function chatDir(id) {
+  return path.join(os.tmpdir(), 'n8n-codex', 'chat', id);
 }
 
 /**
@@ -38,15 +34,20 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
   if (s.busy) return Promise.reject(new BridgeError('Still working on the previous message — wait for the reply.'));
   s.busy = true;
 
+  // Instructions live in AGENTS.md inside the chat dir; rewritten each turn
+  // so a renamed workflow or changed n8n URL stays current.
+  const dir = chatDir(id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), chatInstructions(cfg, { id, name }));
+
   // exec-level options must come BEFORE the `resume` subcommand
-  const args = ['exec', '--json', '--skip-git-repo-check', '--approve-for-me', '--cd', os.tmpdir()];
+  const args = ['exec', '--json', '--skip-git-repo-check', '--approve-for-me', '--cd', dir];
   if (model) args.push('--model', model);
   if (s.threadId) args.push('resume', s.threadId);
   // `-` = read the prompt from stdin. Never put the student's message in argv:
   // on Windows spawn uses cmd.exe for the .cmd shim, which would interpret
   // metacharacters (&, |, %, quotes) in free-form text as shell syntax.
   args.push('-');
-  const prompt = s.threadId ? message : `${preamble(cfg, id, name)}\n\n${message}`;
 
   return new Promise((resolve, reject) => {
     const win = process.platform === 'win32';
@@ -57,7 +58,7 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
       shell: win,
     });
     p.stdin.on('error', () => {}); // EPIPE if codex dies before reading
-    p.stdin.end(prompt);
+    p.stdin.end(message);
     let buf = '';
     let stderr = '';
     let sawReply = false;
@@ -80,7 +81,7 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
           onEvent({ kind: 'tool_done', text: item.tool, ok: item.status === 'completed' });
         } else if (ev.type === 'item.completed' && item.type === 'agent_message' && item.text) {
           sawReply = true;
-          onEvent({ kind: 'reply', text: item.text });
+          onEvent({ kind: 'reply', text: plainText(item.text) });
         }
       }
     });

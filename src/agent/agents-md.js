@@ -1,3 +1,5 @@
+import { workflowRules } from './rules.js';
+
 export function agentsMd(wf) {
   return `# n8n workflow editing session
 
@@ -8,12 +10,7 @@ local n8n instance. There is no separate deploy step.
 ## Rules
 
 - Keep the file valid JSON at all times. Invalid JSON is rejected and NOT deployed.
-- Never change the top-level \`id\`.
-- \`connections\` is keyed by node **name**. If you rename a node, update every
-  occurrence of that name inside \`connections\` (both as key and as \`"node"\` target).
-- Preserve each existing node's \`id\`. For brand-new nodes, generate a fresh UUID.
-- Give every node a unique \`name\` and a sensible \`position\` \`[x, y]\`
-  (place nodes left-to-right, roughly 200–250px apart).
+${workflowRules()}
 
 ## Workflow JSON structure
 

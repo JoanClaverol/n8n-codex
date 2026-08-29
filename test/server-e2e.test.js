@@ -3,6 +3,8 @@
 // lock protects the workflow from concurrent writers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { hasDocker, installFakeCodex, seedWorkflow, startThrowawayN8n, startDashboard, testWorkflowId } from './helpers.js';
 
 const docker = await hasDocker();
@@ -36,7 +38,9 @@ test('dashboard end-to-end: list, chat, busy lock', { skip: !docker && 'no linux
   const reply = events.find((e) => e.kind === 'reply');
   assert.ok(reply?.text.includes('rename the trigger & add a joke node'), 'message round-tripped');
   const firstExec = fake.calls().find((call) => call.argv[0] === 'exec');
-  assert.ok(firstExec.stdin.includes(`workflow id "${id}"`), 'preamble scoped to this workflow');
+  const chatCwd = firstExec.argv[firstExec.argv.indexOf('--cd') + 1];
+  const md = fs.readFileSync(path.join(chatCwd, 'AGENTS.md'), 'utf8');
+  assert.ok(md.includes(`workflow id "${id}"`), 'instructions scoped to this workflow');
   assert.deepEqual(firstExec.argv.slice(-3), ['--model', 'model-fast', '-']);
 
   // busy lock: while codex runs, student saves are 423 and a second chat errors.

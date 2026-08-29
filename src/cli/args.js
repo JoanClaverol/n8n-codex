@@ -44,3 +44,18 @@ export function parseArgs(argv) {
   const [cmd, arg] = rest;
   return { cfg, cmd, arg };
 }
+
+/** argv for `codex mcp add`: the registered server must target the same
+ * container/URL as this invocation, or every chat tool call would silently
+ * talk to the default container. Defaults are omitted to keep it short. */
+export function mcpAddArgs(cfg) {
+  const args = ['mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp'];
+  if (cfg.container !== 'n8n') args.push(`--container=${cfg.container}`);
+  if (cfg.n8nUrlExplicit) args.push(`--n8n-url=${cfg.n8nUrl}`);
+  return args;
+}
+
+/** True when cfg carries MCP-relevant flags that differ from the defaults. */
+export function mcpNeedsFlags(cfg) {
+  return cfg.container !== 'n8n' || cfg.n8nUrlExplicit === true;
+}

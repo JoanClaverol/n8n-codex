@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { parseArgs } from '../src/cli/args.js';
+import { mcpAddArgs, parseArgs } from '../src/cli/args.js';
 const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'cli.js');
 
 function run(args) {
@@ -49,4 +49,14 @@ test('an explicit --n8n-url is marked so port discovery never overrides it', () 
   const pinned = parseArgs(['--n8n-url=http://localhost:9999/', 'list']);
   assert.equal(pinned.cfg.n8nUrlExplicit, true);
   assert.equal(pinned.cfg.n8nUrl, 'http://localhost:9999', 'trailing slash stripped');
+});
+
+test('MCP registration carries non-default container/url flags', () => {
+  const def = parseArgs(['list']);
+  assert.deepEqual(mcpAddArgs(def.cfg), ['mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp'],
+    'defaults registered without flags');
+  const custom = parseArgs(['--container=my-n8n', '--n8n-url=http://localhost:9999', 'list']);
+  assert.deepEqual(mcpAddArgs(custom.cfg), [
+    'mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp', '--container=my-n8n', '--n8n-url=http://localhost:9999',
+  ], 'chat tool calls must hit the same n8n the dashboard shows');
 });

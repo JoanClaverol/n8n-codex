@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveN8nUrl } from './docker.js';
+import { mcpAddArgs, mcpNeedsFlags } from './cli/args.js';
 
 const exec = promisify(execFile);
 const ok = (s) => console.log(`  \x1b[32m✓\x1b[0m ${s}`);
@@ -97,14 +98,18 @@ export async function preflight(cfg) {
     usable = false;
   }
 
-  // 4. MCP registration (auto-fix)
+  // 4. MCP registration (auto-fix). Non-default --container/--n8n-url must be
+  // baked into the registered command — the MCP process codex spawns gets no
+  // other way to learn them — so re-register whenever such flags are in play.
   try {
     const listed = await run('codex', ['mcp', 'list'], codexOpts);
-    if (/^n8n\s/m.test(listed)) {
+    const registered = /^n8n\s/m.test(listed);
+    if (registered && !mcpNeedsFlags(cfg)) {
       ok('codex can talk to n8n');
     } else {
-      await run('codex', ['mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp'], codexOpts);
-      ok('connected codex to n8n (first-time setup)');
+      if (registered) await run('codex', ['mcp', 'remove', 'n8n'], codexOpts).catch(() => {});
+      await run('codex', mcpAddArgs(cfg), codexOpts);
+      ok(registered ? 'pointed codex at this n8n (updated for your flags)' : 'connected codex to n8n (first-time setup)');
     }
   } catch {
     bad('could not register the n8n tools with codex');

@@ -9,6 +9,11 @@ import { plainText } from './agent/plain-text.js';
 /** In-memory chat threads: workflowId -> { threadId, busy }. Lives as long as the dashboard. */
 const sessions = new Map();
 
+/** A codex turn that produces nothing for this long is stuck (network stall,
+ * unexpected interactive prompt): kill it and free the busy lock, or the chat
+ * AND the student's own editor saves (423 gate) stay wedged until restart. */
+const TURN_TIMEOUT_MS = 15 * 60_000;
+
 /** True while a codex turn is editing this workflow — used to lock out concurrent edits. */
 export function isBusy(id) {
   return sessions.get(id)?.busy === true;
@@ -62,6 +67,19 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: win,
     });
+    // one exit path: whatever settles first clears the lock and the watchdog
+    let settled = false;
+    const settle = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      s.busy = false;
+      fn(value);
+    };
+    const watchdog = setTimeout(() => {
+      p.kill();
+      settle(reject, new BridgeError('The AI got stuck and was stopped. Check the canvas for partial changes, then send your message again.'));
+    }, cfg.turnTimeoutMs ?? TURN_TIMEOUT_MS);
     p.stdin.on('error', () => {}); // EPIPE if codex dies before reading
     p.stdin.end(message);
     let buf = '';
@@ -92,18 +110,16 @@ export function chatTurn(cfg, id, name, message, model, onEvent) {
     });
     p.stderr.on('data', (d) => (stderr += d));
     p.on('error', (err) => {
-      s.busy = false;
-      reject(new BridgeError(err.code === 'ENOENT'
+      settle(reject, new BridgeError(err.code === 'ENOENT'
         ? 'codex not found on PATH — install it with: npm install -g @openai/codex'
         : `codex failed to start: ${err.message}`));
     });
     p.on('close', (code) => {
-      s.busy = false;
       if (code !== 0 && !sawReply) {
         const tail = stderr.trim().split('\n').slice(-3).join('\n');
-        reject(new BridgeError(tail || `codex exited with code ${code}`));
+        settle(reject, new BridgeError(tail || `codex exited with code ${code}`));
       } else {
-        resolve();
+        settle(resolve);
       }
     });
   });

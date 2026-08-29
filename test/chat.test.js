@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { installFakeCodex } from './helpers.js';
-import { chatDir, chatTurn } from '../src/chat.js';
+import { chatDir, chatTurn, isBusy } from '../src/chat.js';
 
 const cfg = { n8nUrl: 'http://localhost:5678' };
 const NASTY = 'add a joke node & del /q * | echo "quoted" %PATH% $(uname)\nsecond line — émoji 🚀';
@@ -67,4 +67,15 @@ test('codex failure surfaces its stderr as a friendly error', async (t) => {
   installFakeCodex(t, { FAKE_CODEX_EXIT: '3' });
   const id = 'wf-fail-' + Date.now();
   await assert.rejects(chatTurn(cfg, id, 'WF', 'hello', null, () => {}), /simulated failure/);
+});
+
+test('watchdog: a hung codex turn is killed and frees the busy lock', async (t) => {
+  installFakeCodex(t, { FAKE_CODEX_DELAY_MS: '60000' });
+  const id = 'wf-hung-' + Date.now();
+  t.after(() => fs.rmSync(chatDir(id), { recursive: true, force: true }));
+  await assert.rejects(
+    chatTurn({ ...cfg, turnTimeoutMs: 500 }, id, 'WF', 'hello', null, () => {}),
+    /got stuck/,
+  );
+  assert.equal(isBusy(id), false, 'busy lock released — the next message and editor saves work again');
 });

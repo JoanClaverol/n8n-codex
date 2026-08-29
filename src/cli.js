@@ -3,7 +3,7 @@ import { findLocal, list, pull, push, restore, session } from './bridge.js';
 import { serve } from './server.js';
 import { BridgeError } from './error.js';
 import { HELP } from './cli/help.js';
-import { parseArgs } from './cli/args.js';
+import { mcpAddArgs, parseArgs } from './cli/args.js';
 
 function requireId(id, usage) {
   if (!id) { console.error(`Usage: n8n-codex ${usage}`); process.exit(1); }
@@ -37,7 +37,7 @@ export async function run(argv) {
 
       case 'setup': {
         const { execFileSync } = await import('node:child_process');
-        execFileSync('codex', ['mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp'], {
+        execFileSync('codex', mcpAddArgs(cfg), {
           stdio: 'inherit',
           shell: process.platform === 'win32',
         });

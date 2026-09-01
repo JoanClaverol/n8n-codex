@@ -55,6 +55,16 @@ export function mcpAddArgs(cfg) {
   return args;
 }
 
+/** The free, no-auth n8n documentation MCP server (GitBook). Lets the AI look
+ * up real node parameters instead of guessing. */
+export const DOCS_MCP_URL = 'https://docs.n8n.io/~gitbook/mcp';
+
+/** argv for `codex mcp add` of the docs server. Needs a codex build with
+ * `--url` support — callers must treat failure as optional. */
+export function docsMcpAddArgs() {
+  return ['mcp', 'add', 'n8n-docs', '--url', DOCS_MCP_URL];
+}
+
 /** True when cfg carries MCP-relevant flags that differ from the defaults. */
 export function mcpNeedsFlags(cfg) {
   return cfg.container !== 'n8n' || cfg.n8nUrlExplicit === true;

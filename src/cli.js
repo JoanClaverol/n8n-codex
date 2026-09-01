@@ -3,7 +3,7 @@ import { findLocal, list, pull, push, restore, session } from './bridge.js';
 import { serve } from './server.js';
 import { BridgeError } from './error.js';
 import { HELP } from './cli/help.js';
-import { mcpAddArgs, parseArgs } from './cli/args.js';
+import { docsMcpAddArgs, mcpAddArgs, parseArgs } from './cli/args.js';
 
 function requireId(id, usage) {
   if (!id) { console.error(`Usage: n8n-codex ${usage}`); process.exit(1); }
@@ -37,10 +37,11 @@ export async function run(argv) {
 
       case 'setup': {
         const { execFileSync } = await import('node:child_process');
-        execFileSync('codex', mcpAddArgs(cfg), {
-          stdio: 'inherit',
-          shell: process.platform === 'win32',
-        });
+        const shell = process.platform === 'win32';
+        execFileSync('codex', mcpAddArgs(cfg), { stdio: 'inherit', shell });
+        // Optional: the free n8n docs MCP server (needs `codex mcp add --url`
+        // support; everything works without it, so failures are silent).
+        try { execFileSync('codex', docsMcpAddArgs(), { stdio: 'ignore', shell }); } catch { /* optional */ }
         console.log('Registered MCP server "n8n" with codex. Try:  codex  →  "list my n8n workflows"');
         return 0;
       }

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveN8nUrl } from './docker.js';
-import { mcpAddArgs, mcpNeedsFlags } from './cli/args.js';
+import { docsMcpAddArgs, mcpAddArgs, mcpNeedsFlags } from './cli/args.js';
 
 const exec = promisify(execFile);
 const ok = (s) => console.log(`  \x1b[32m✓\x1b[0m ${s}`);
@@ -110,6 +110,15 @@ export async function preflight(cfg) {
       if (registered) await run('codex', ['mcp', 'remove', 'n8n'], codexOpts).catch(() => {});
       await run('codex', mcpAddArgs(cfg), codexOpts);
       ok(registered ? 'pointed codex at this n8n (updated for your flags)' : 'connected codex to n8n (first-time setup)');
+    }
+    // Docs lookup (optional): the free n8n docs MCP server gives the AI real
+    // node documentation. Older codex builds lack `mcp add --url`; failure is
+    // silent because everything works without it.
+    if (!/^n8n-docs\s/m.test(listed)) {
+      try {
+        await run('codex', docsMcpAddArgs(), codexOpts);
+        ok('connected codex to the n8n docs (smarter node suggestions)');
+      } catch { /* optional */ }
     }
   } catch {
     bad('could not register the n8n tools with codex');

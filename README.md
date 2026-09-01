@@ -231,7 +231,10 @@ n8n stores workflows in a database, not files. `n8n-codex` exposes them to the
 
 - **MCP tools** (`list_workflows`, `get_workflow`, `update_workflow`) — registered
   automatically; any codex conversation can edit your workflows, including the
-  dashboard chat, which drives `codex exec` behind the scenes.
+  dashboard chat, which drives `codex exec` behind the scenes. The official
+  [n8n docs MCP server](https://docs.n8n.io/connect/connect-to-n8n-docs-mcp-server)
+  is registered too (when your codex version supports it), so the AI can look up
+  real node documentation instead of guessing.
 - **A file bridge** — `n8n-codex <workflow-id>` pulls a workflow to
   `./n8n-workflows/<name>-<id>/workflow.json`, opens codex there, and auto-deploys
   every save. Useful when you want to see or hand-edit the JSON.

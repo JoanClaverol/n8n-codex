@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { mcpAddArgs, parseArgs } from '../src/cli/args.js';
+import { docsMcpAddArgs, mcpAddArgs, parseArgs } from '../src/cli/args.js';
 const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'cli.js');
 
 function run(args) {
@@ -59,4 +59,8 @@ test('MCP registration carries non-default container/url flags', () => {
   assert.deepEqual(mcpAddArgs(custom.cfg), [
     'mcp', 'add', 'n8n', '--', 'n8n-codex', 'mcp', '--container=my-n8n', '--n8n-url=http://localhost:9999',
   ], 'chat tool calls must hit the same n8n the dashboard shows');
+});
+
+test('docs MCP registration targets the official GitBook server', () => {
+  assert.deepEqual(docsMcpAddArgs(), ['mcp', 'add', 'n8n-docs', '--url', 'https://docs.n8n.io/~gitbook/mcp']);
 });

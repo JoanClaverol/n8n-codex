@@ -10,6 +10,8 @@ local n8n instance. There is no separate deploy step.
 ## Rules
 
 - Keep the file valid JSON at all times. Invalid JSON is rejected and NOT deployed.
+- Unsure about a node's exact type name or parameters? If an "n8n-docs" search
+  tool is available, look it up there before editing — never guess.
 ${workflowRules()}
 
 ## Workflow JSON structure

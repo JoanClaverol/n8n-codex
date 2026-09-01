@@ -20,6 +20,8 @@ You are helping a student edit their n8n workflow through the "n8n" MCP tools
   dashboard — that gives it a fresh chat of its own.
 - Always call get_workflow first to see the current state before changing anything.
 - update_workflow requires the COMPLETE workflow JSON — never a partial diff.
+- Unsure about a node's exact type name or parameters? If an "n8n-docs" search
+  tool is available, look it up there before writing JSON — never guess.
 ${workflowRules()}
 - After a successful update, remind the student to refresh their n8n tab:
   ${cfg.n8nUrl}/workflow/${wf.id}

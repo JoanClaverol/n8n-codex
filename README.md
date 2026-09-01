@@ -3,14 +3,7 @@
 Build [n8n](https://n8n.io) workflows by chatting with an AI — and watch the canvas
 update live while you talk.
 
-```
-┌──────────────────────────────┬──────────────┐
-│                              │  you:  add a │
-│      n8n canvas (live)       │  joke node…  │
-│                              │  ai: ✓ saved │
-└──────────────────────────────┴──────────────┘
-        one browser window, port 5680
-```
+![The chat next to the live n8n canvas — you type what you want, the AI edits the workflow and the canvas updates](docs/screenshots/chat.webp)
 
 ## What you need (every operating system)
 
@@ -168,7 +161,11 @@ n8n-codex
 ```
 
 That's it. It checks everything (and starts n8n for you if it's stopped), then opens
-http://localhost:5680. Click **Chat** on a workflow and just say what you want:
+http://localhost:5680 — a list of your workflows:
+
+![The dashboard: your workflows with a Chat button on each](docs/screenshots/dashboard.webp)
+
+Click **Chat** on a workflow and just say what you want:
 
 > add an HTTP Request node that fetches a random joke from
 > https://official-joke-api.appspot.com/random_joke and connect it after the trigger

@@ -18,6 +18,8 @@ class El {
     this._html = '';
   }
   set textContent(v) { this._text = String(v); this.children = []; }
+  addEventListener() {}
+  focus() {}
   get textContent() { return this._text + this.children.map((c) => c.textContent).join(''); }
   appendChild(c) { this.children.push(c); return c; }
 }
@@ -37,7 +39,9 @@ test('workflow names render as text, never as markup', async (t) => {
   const htmlWrites = [];
   const pageData = new El('script');
   pageData.textContent = JSON.stringify({ n8nUrl: 'http://localhost:5678' });
-  const byId = { status: new El('p'), tbl: new El('table'), 'page-data': pageData };
+  const searchEl = new El('input');
+  searchEl.value = '';
+  const byId = { status: new El('p'), tbl: new El('table'), search: searchEl, 'page-data': pageData };
   const tbody = new El('tbody');
   Object.defineProperty(tbody, 'innerHTML', {
     set(v) { htmlWrites.push(String(v)); this.children = []; },

@@ -11,6 +11,7 @@ function renderWorkflowTable() {
 export function renderDashboardPage(cfg) {
   const body = `${renderBrand()}
 <p class="sub">Click <b>Chat</b> on a workflow to build it by talking to the AI — you'll see the canvas update live.</p>
+<input id="search" type="search" placeholder="Search workflows by name or ID…" hidden>
 <p id="status">Loading workflows…</p>
 ${renderWorkflowTable()}`;
 

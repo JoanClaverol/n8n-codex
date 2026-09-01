@@ -182,46 +182,50 @@ workflow in the browser and can be changed between messages.
 
 Keep the terminal window open while you work; Ctrl-C stops the tool.
 
-## Updating or reinstalling
+## Updating
 
-`n8n-codex`, the Codex CLI, and the n8n Docker image are updated separately.
-Stop a running `n8n-codex` with Ctrl-C before updating it.
+Got told there's a new version? Updating takes a minute and never touches your
+workflows or backups (workflows live in Docker's `n8n_data` volume, backups in
+`~/.n8n-codex/backups/` — neither is affected).
 
-To update `n8n-codex`, open a terminal in the folder you cloned during setup:
+1. If `n8n-codex` is running in a terminal, stop it with **Ctrl-C**.
+2. Go to the folder you cloned during setup:
+
+   ```sh
+   cd path/to/n8n-codex        # e.g. cd ~/n8n-codex
+   ```
+
+3. Download the new version and reinstall the command from it — on Windows
+   PowerShell run the lines one at a time:
+
+   ```sh
+   git pull --ff-only
+   npm install -g .
+   ```
+
+4. Start it again: `n8n-codex`. Done.
+
+Both commands are safe to run as often as you like — if there's nothing new,
+they simply do nothing.
+
+If a command complains:
+
+| Message | Fix |
+|---|---|
+| `fatal: not a git repository` | You're not in the right folder — `cd` into the folder where you ran `git clone` during setup |
+| `git pull` refuses because of local changes | You edited files inside the folder. Keep your edits out of the way with `git stash`, run `git pull --ff-only` again, then `git stash pop` |
+| `EACCES` / permission denied | Rerun as `sudo npm install -g .` (macOS/Linux) |
+
+The Codex CLI and n8n itself are updated separately, whenever you want:
 
 ```sh
-cd path/to/n8n-codex
-git pull --ff-only
-npm install -g .
+npm install -g @openai/codex@latest   # newest Codex CLI
+docker compose pull                    # newest n8n image (run in this folder)
+docker compose up -d                   # restart n8n on it, keeping all data
 ```
 
-The last command refreshes the global `n8n-codex` command from the checked-out
-source. It is safe to run again. If `git pull` reports local changes, save or
-commit those changes first instead of overwriting them.
-
-To reinstall the command without deleting your workflows or backups:
-
-```sh
-cd path/to/n8n-codex
-npm uninstall -g n8n-codex
-npm install -g .
-```
-
-Workflow data remains in Docker's `n8n_data` volume, and backups remain under
-`~/.n8n-codex/backups/`; neither command removes them.
-
-Optionally update the other two components:
-
-```sh
-npm install -g @openai/codex@latest   # Codex CLI
-docker compose pull                    # latest n8n image (run in this folder)
-docker compose up -d                   # recreate n8n while keeping its data
-```
-
-Run `n8n-codex` afterward. Its setup check verifies the Codex MCP registration
+Run `n8n-codex` afterward — its setup check verifies the Codex MCP registration
 automatically and repairs it when needed.
-
----
 
 ## How it works (for the curious)
 

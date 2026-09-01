@@ -58,9 +58,14 @@ test('mcp: JSON-RPC framing over stdio', async (t) => {
   mcp.writeRaw(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }));
 
   const init = await mcp.request('initialize', { protocolVersion: '2024-11-05' });
-  assert.equal(init.result.protocolVersion, '2024-11-05', 'echoes the client protocol version');
+  assert.equal(init.result.protocolVersion, '2024-11-05', 'a supported client version is accepted as-is');
   assert.equal(init.result.serverInfo.name, 'n8n-codex');
   assert.deepEqual(init.result.capabilities, { tools: {} });
+
+  // Unknown (e.g. future) client versions must not be echoed back — the spec
+  // says answer with the latest version the server actually implements.
+  const future = await mcp.request('initialize', { protocolVersion: '2099-01-01' });
+  assert.equal(future.result.protocolVersion, '2025-06-18', 'never claims an unsupported protocol version');
 
   assert.deepEqual((await mcp.request('ping')).result, {});
 

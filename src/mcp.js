@@ -36,6 +36,12 @@ const TOOLS = [
   },
 ];
 
+/** MCP protocol revisions this server implements. `initialize` must never
+ * claim a version it doesn't know (the spec says: echo the client's version
+ * if supported, otherwise answer with the latest supported one). */
+const PROTOCOL_VERSIONS = new Set(['2024-11-05', '2025-03-26', '2025-06-18']);
+const LATEST_PROTOCOL = '2025-06-18';
+
 async function callTool(cfg, name, args) {
   await ensureContainer(cfg.container);
   switch (name) {
@@ -94,7 +100,9 @@ export function serveMcp(cfg) {
       switch (req.method) {
         case 'initialize':
           respond({
-            protocolVersion: req.params?.protocolVersion || '2025-06-18',
+            protocolVersion: PROTOCOL_VERSIONS.has(req.params?.protocolVersion)
+              ? req.params.protocolVersion
+              : LATEST_PROTOCOL,
             capabilities: { tools: {} },
             serverInfo: { name: 'n8n-codex', version: '0.1.0' },
           });

@@ -31,9 +31,12 @@ function render() {
     name.appendChild(idElement);
     td().textContent = workflow.nodes;
 
-    const badge = document.createElement('span');
+    const badge = document.createElement('button');
+    badge.type = 'button';
     badge.className = 'badge' + (workflow.active ? ' on' : '');
     badge.textContent = workflow.active ? 'active' : 'inactive';
+    badge.title = workflow.active ? 'Click to deactivate' : 'Click to activate';
+    badge.addEventListener('click', () => toggle(workflow, badge));
     td().appendChild(badge);
 
     const chat = document.createElement('a');
@@ -55,6 +58,25 @@ function render() {
   if (!query) status.textContent = workflows.length + ' workflow(s).';
   else if (shown.length) status.textContent = shown.length + ' of ' + workflows.length + ' workflow(s).';
   else status.textContent = 'No workflows match "' + search.value.trim() + '".'; // textContent — query stays inert
+}
+
+async function toggle(workflow, badge) {
+  badge.disabled = true;
+  try {
+    const res = await fetch('/api/workflows/' + encodeURIComponent(workflow.id) + '/activate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ active: !workflow.active }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const row = await res.json();
+    const target = workflows.find((w) => w.id === row.id);
+    if (target) target.active = row.active;
+    render();
+  } catch (err) {
+    render(); // rebuilds rows, re-enabling the badge
+    status.textContent = 'Error: ' + err.message; // textContent — server text stays inert
+  }
 }
 
 async function load() {

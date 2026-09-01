@@ -99,6 +99,11 @@ export async function exportWorkflows(container, id) {
   }
 }
 
+/** Flip a workflow's active flag via the n8n CLI (persists in the container's DB). */
+export async function setWorkflowActive(container, id, active) {
+  await docker(['exec', container, 'n8n', 'update:workflow', `--id=${id}`, `--active=${active}`]);
+}
+
 /** Import (create or update by id) a single workflow object, snapshotting the previous state. */
 export async function importWorkflow(container, workflow) {
   await backupBefore(container, workflow.id);

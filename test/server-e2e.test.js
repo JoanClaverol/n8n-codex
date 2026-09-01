@@ -9,7 +9,7 @@ import { hasDocker, installFakeCodex, seedWorkflow, startThrowawayN8n, startDash
 
 const docker = await hasDocker();
 
-test('dashboard end-to-end: list, chat, busy lock', { skip: !docker && 'no linux docker daemon' }, async (t) => {
+test('dashboard end-to-end: list, activate, chat, busy lock', { skip: !docker && 'no linux docker daemon' }, async (t) => {
   const id = testWorkflowId();
   const container = await startThrowawayN8n(t, seedWorkflow(id, 'e2e self-test'));
   const fake = installFakeCodex(t);
@@ -19,6 +19,29 @@ test('dashboard end-to-end: list, chat, busy lock', { skip: !docker && 'no linux
   const rows = await (await fetch(url + '/api/workflows')).json();
   const row = rows.find((w) => w.id === id);
   assert.deepEqual(row, { id, name: 'e2e self-test', active: false, nodes: 1 });
+
+  // activate/deactivate round-trips through the n8n CLI and survives a re-list
+  const flip = (wfId, active) => fetch(`${url}/api/workflows/${wfId}/activate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ active }),
+  });
+  const on = await flip(id, true);
+  assert.equal(on.status, 200);
+  assert.deepEqual(await on.json(), { id, name: 'e2e self-test', active: true, nodes: 1 });
+  const relisted = await (await fetch(url + '/api/workflows')).json();
+  assert.equal(relisted.find((w) => w.id === id).active, true, 'active flag persisted in n8n');
+  const off = await flip(id, false);
+  assert.equal((await off.json()).active, false);
+
+  // guard rails: no JSON content type, missing flag, unknown workflow
+  const plain = await fetch(`${url}/api/workflows/${id}/activate`, { method: 'POST', body: '{"active":true}' });
+  assert.equal(plain.status, 403, 'non-JSON POSTs are rejected');
+  const noFlag = await fetch(`${url}/api/workflows/${id}/activate`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+  });
+  assert.equal(noFlag.status, 400);
+  assert.equal((await flip(testWorkflowId(), true)).status, 404);
 
   // models are discovered from the installed Codex CLI for this dashboard session
   const catalog = await (await fetch(url + '/api/models')).json();
@@ -60,6 +83,8 @@ test('dashboard end-to-end: list, chat, busy lock', { skip: !docker && 'no linux
     await new Promise((r) => setTimeout(r, 200));
   }
   assert.equal(save.status, 423, 'editor saves are locked while the AI works');
+  const busyFlip = await flip(id, true);
+  assert.equal(busyFlip.status, 423, 'activation is locked while the AI works');
   delete process.env.FAKE_CODEX_DELAY_MS;
   const second = await chat('impatient message');
   assert.ok(second.some((e) => e.kind === 'error' && /Still working/.test(e.text)));

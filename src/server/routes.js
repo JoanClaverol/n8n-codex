@@ -1,4 +1,5 @@
-import { list } from '../bridge.js';
+import { list, setActive } from '../bridge.js';
+import { BridgeError } from '../error.js';
 import { chatTurn, isBusy, resetChat } from '../chat.js';
 import { listModels } from '../models.js';
 import { renderChatPage } from '../ui/pages/chat.js';
@@ -63,6 +64,35 @@ export function createRoutes(cfg) {
       const rows = await list(cfg);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(rows));
+      return true;
+    }
+
+    // dashboard toggle: flip a workflow's active flag through the n8n CLI
+    const wfActivate = req.url.match(/^\/api\/workflows\/([A-Za-z0-9_-]+)\/activate$/);
+    if (wfActivate && req.method === 'POST') {
+      // JSON content type required — same drive-by-POST stance as the chat routes
+      if (!/^application\/json/.test(req.headers['content-type'] || '')) {
+        res.writeHead(403); res.end('forbidden'); return true;
+      }
+      const id = wfActivate[1];
+      if (isBusy(id)) {
+        res.writeHead(423, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ message: 'The AI is editing this workflow right now — wait for it to finish, then try again.' }));
+        return true;
+      }
+      const { active } = await readBody(req);
+      if (typeof active !== 'boolean') { res.writeHead(400); res.end('missing boolean "active"'); return true; }
+      let row;
+      try {
+        row = await setActive(cfg, id, active);
+      } catch (err) {
+        if (err instanceof BridgeError && /not found/i.test(err.message)) {
+          res.writeHead(404); res.end(err.message); return true;
+        }
+        throw err; // server.js turns everything else into a 500 with the message
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(row));
       return true;
     }
 

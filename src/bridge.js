@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { backupDir, ensureContainer, exportWorkflows, importWorkflow, importWorkflowRaw, resolveN8nUrl } from './docker.js';
+import { backupDir, ensureContainer, exportWorkflows, importWorkflow, importWorkflowRaw, resolveN8nUrl, setWorkflowActive } from './docker.js';
 import { BridgeError } from './error.js';
 import { agentsMd } from './agent/agents-md.js';
 
@@ -60,6 +60,23 @@ export async function list(cfg) {
     active: w.active === true,
     nodes: Array.isArray(w.nodes) ? w.nodes.length : 0,
   }));
+}
+
+/**
+ * Flip a workflow's active flag. The CLI updates silently even for unknown
+ * ids, so existence is checked first. Returns the updated dashboard row.
+ */
+export async function setActive(cfg, id, active) {
+  await ensureContainer(cfg.container);
+  const [wf] = await exportWorkflows(cfg.container, id);
+  if (!wf) throw new BridgeError(`Workflow "${id}" not found in n8n.`);
+  await setWorkflowActive(cfg.container, id, active);
+  return {
+    id,
+    name: wf.name,
+    active,
+    nodes: Array.isArray(wf.nodes) ? wf.nodes.length : 0,
+  };
 }
 
 /** Undo the last saved change: restore the newest backup and consume it (repeat to go further back). */

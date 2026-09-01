@@ -15,6 +15,7 @@ function renderRail() {
 function renderSidebar() {
   return `<aside>
   <header>
+    <a id="back" class="btn" href="/" title="Back to the dashboard — switch to another workflow's chat">←</a>
     ${renderBrand({ linked: true })}
     <span id="wfname" class="grow">…</span>
     <button id="refresh" type="button" title="Start over — fresh chat on the workflow shown in the canvas">↻</button>

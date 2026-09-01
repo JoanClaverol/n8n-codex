@@ -101,7 +101,7 @@ function warnIfOffWorkflow() {
   warnedOffWorkflow = true;
   add('msg bot', 'Heads-up: the canvas is showing a different page. This chat only edits "'
     + document.getElementById('wfname').textContent
-    + '" — for another workflow, go back to the dashboard and open its own Chat.');
+    + '" — for another workflow, hit ← to go back to the dashboard and open its own Chat.');
 }
 
 function add(className, text) {

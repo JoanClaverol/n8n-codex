@@ -35,7 +35,9 @@ function render() {
     badge.type = 'button';
     badge.className = 'badge' + (workflow.active ? ' on' : '');
     badge.textContent = workflow.active ? 'active' : 'inactive';
-    badge.title = workflow.active ? 'Click to deactivate' : 'Click to activate';
+    badge.title = workflow.active
+      ? 'Click to deactivate — switches this workflow\u2019s triggers off'
+      : 'Click to activate — switches this workflow\u2019s triggers on';
     badge.addEventListener('click', () => toggle(workflow, badge));
     td().appendChild(badge);
 

@@ -179,6 +179,32 @@ workflow in the browser and can be changed between messages.
 
 Keep the terminal window open while you work; Ctrl-C stops the tool.
 
+### Active workflows (the status badge)
+
+Every workflow on the dashboard shows an **active** / **inactive** badge — click
+it to flip the switch. Here's what it means:
+
+- **Active** = the workflow's *triggers are armed*. A Schedule trigger fires on
+  its own, a Webhook trigger answers calls from the internet — no clicking
+  needed. **Inactive** = the workflow only runs when you test it manually in the
+  editor. Nothing is deleted either way; it's just on/off.
+- **You can have as many active workflows as you like.** Each one listens
+  independently — a daily report, a webhook, and a mail poller can all be active
+  at once without getting in each other's way. (The only clash n8n refuses: two
+  active workflows listening on the *same* webhook URL.)
+- **One catch:** the badge (like the AI's edits) saves the on/off state straight
+  into n8n's database, but the *running* n8n only re-arms its triggers when the
+  change happens in its own editor. So after toggling the badge — or after the
+  AI edits an active workflow — flip the switch off/on inside the n8n editor, or
+  restart n8n from this folder:
+
+  ```sh
+  docker compose restart
+  ```
+
+  Until then the badge shows the *saved* state, which may not match what n8n is
+  actually listening for.
+
 ## Updating
 
 Got told there's a new version? Updating takes a minute and never touches your
@@ -279,7 +305,8 @@ n8n-codex mcp           # the MCP server itself (codex launches this; not for hu
   else. If the canvas isn't on a saved workflow, the chat stays on its current one.
 - Invalid workflow JSON is never deployed — it's rejected with an error instead.
 - If a workflow is **active**, toggle it off/on in the n8n UI after editing so its
-  triggers reload.
+  triggers reload — see [Active workflows](#active-workflows-the-status-badge)
+  for why.
 - Credentials are never stored in workflow JSON (only credential *references*), so
   the files are safe to share or commit.
 
